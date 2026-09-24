@@ -71,9 +71,10 @@
 <body>
 <main>
   <h1>Set up your NexSwap tag</h1>
-  <p class="lead">Fill this in, press the button, then hold your phone against the back of your tag.</p>
+  <p class="lead" id="lead">Fill this in, then press “Send to my tag”. Keep your phone near the tag (Bluetooth on).</p>
   <div id="unsupported" class="warn" hidden>
-    This page needs Chrome on an Android phone with NFC switched on (Web NFC). iPhones aren't supported yet.
+    Sending to the tag needs Chrome on Android with Bluetooth on. On iPhone, open this page in the Bluefy browser.
+    You can still sign in and save your profile here.
   </div>
 
   <section class="account" aria-label="Account">
@@ -127,7 +128,7 @@
 
 <div class="bar"><div class="bar-inner">
   <p id="status" role="status" aria-live="polite"></p>
-  <button id="write" type="button">Write to my tag</button>
+  <button id="write" type="button">Send to my tag</button>
 </div></div>
 
 <script type="module">
@@ -158,7 +159,15 @@ const OFFER = ["Hiring", "Investing", "Mentoring", "Co-founder material",
   "Selling", "Open to partner", "Freelancing", "Giving advice"];
 const SEEK = ["Job hunting", "Raising", "Seeking mentor", "Seeking co-founder",
   "Buying", "Seeking partners", "Hiring freelancers", "Seeking advice"];
-const MIME = "application/vnd.nexswap.profile";
+// Must match include/Proximity.c in the tag firmware
+const SETUP_SERVICE = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570001";
+const SETUP_PROFILE = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570002";
+const SETUP_STATUS  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570003";
+
+// The QR code on the tag opens this page with ?tag=<8-hex tag ID>&k=<6-hex one-time code>
+const params = new URLSearchParams(location.search);
+const TAG_ID = /^[0-9A-Fa-f]{8}$/.test(params.get("tag") || "") ? params.get("tag").toUpperCase() : "";
+const SETUP_CODE = /^[0-9A-Fa-f]{6}$/.test(params.get("k") || "") ? params.get("k").toUpperCase() : "";
 
 function addChips(containerId, labels) {
   const box = document.getElementById(containerId);
@@ -213,9 +222,15 @@ const status = document.getElementById("status");
 const button = document.getElementById("write");
 function setStatus(text, kind) { status.textContent = text; status.className = kind || ""; }
 
-if (!("NDEFReader" in window)) {
+const canSend = !!(TAG_ID && SETUP_CODE && navigator.bluetooth);
+if (!TAG_ID || !SETUP_CODE) {
+  // Opened without scanning a tag: still useful for signing in and editing the saved profile
+  button.textContent = "Save my profile";
+  document.getElementById("lead").textContent =
+    "To send your profile to a tag, scan the QR code on its screen. You can edit and save your profile here any time.";
+} else if (!navigator.bluetooth) {
   document.getElementById("unsupported").hidden = false;
-  button.disabled = true;
+  button.textContent = "Save my profile";
 }
 
 // ---------- company guess from a work email ----------
@@ -316,33 +331,66 @@ onAuthStateChanged(auth, async (u) => {
   }
 });
 
+// Advert manufacturer data after the company ID: 'N' 'X' version, then the tag ID little-endian (see Proximity.c)
+function tagAdvertPrefix(tagHex) {
+  const id = parseInt(tagHex, 16) >>> 0;
+  return new Uint8Array([0x4E, 0x58, 1, id & 0xFF, (id >>> 8) & 0xFF, (id >>> 16) & 0xFF, (id >>> 24) & 0xFF]);
+}
+
+async function sendToTag() {
+  const device = await navigator.bluetooth.requestDevice({
+    filters: [{ manufacturerData: [{ companyIdentifier: 0xFFFF, dataPrefix: tagAdvertPrefix(TAG_ID) }] }],
+    optionalServices: [SETUP_SERVICE],
+  });
+  setStatus("Connecting to your tag…");
+  let server;
+  for (let attempt = 1; ; attempt++) {           // the first connect can fail while the tag is busy scanning
+    try { server = await device.gatt.connect(); break; }
+    catch (err) { if (attempt >= 3) throw err; await new Promise(r => setTimeout(r, 500)); }
+  }
+  try {
+    const service = await server.getPrimaryService(SETUP_SERVICE);
+    const profileChar = await service.getCharacteristic(SETUP_PROFILE);
+    const statusChar = await service.getCharacteristic(SETUP_STATUS);
+    setStatus("Sending…");
+    await profileChar.writeValueWithResponse(new TextEncoder().encode(`k=${SETUP_CODE}|${payload()}`));
+    return new TextDecoder().decode(await statusChar.readValue());
+  } finally {
+    device.gatt.disconnect();
+  }
+}
+
+const SEND_ERRORS = {
+  "closed": "The tag isn't in setup mode any more. On the tag: Menu → Settings → Update profile, then scan the new code.",
+  "bad-code": "This code has expired. Scan the QR code on the tag again.",
+  "bad-format": "The tag couldn't read that profile. Check your details and try again.",
+};
+
 button.addEventListener("click", async () => {
   const first = document.getElementById("first");
   if (!first.value.trim()) { first.focus(); setStatus("Add your first name first.", "err"); return; }
   saveForm();
   button.disabled = true;
   const saved = await saveToAccount();
-  setStatus("Hold your phone against the back of your tag…");
   try {
-    const ndef = new NDEFReader();
-    const message = { records: [{ recordType: "mime", mediaType: MIME, data: new TextEncoder().encode(payload()) }] };
-    // Android reads the tag before Chrome writes, and the connection can drop in between ("IO error").
-    // The phone is usually still on the tag, so try again a couple of times before giving up.
-    const ATTEMPTS = 3;
-    for (let attempt = 1; ; attempt++) {
-      try {
-        await ndef.write(message, { overwrite: true });
-        break;
-      } catch (err) {
-        if (err.name !== "NetworkError" || attempt >= ATTEMPTS) throw err;
-        setStatus(`Keep holding… (try ${attempt + 1} of ${ATTEMPTS})`);
-      }
+    if (!canSend) {
+      setStatus(saved && user ? "Saved to your account." : "Saved on this phone.", "ok");
+      return;
     }
-    setStatus(saved ? "Saved! Your tag should say “Profile saved”."
-                    : "Written to your tag, but saving to your account failed. Try again later.", saved ? "ok" : "err");
+    setStatus("Choose your tag in the Bluetooth list…");
+    const result = await sendToTag();
+    if (result === "ok") {
+      setStatus(saved ? "Done! Your tag should say “Profile saved”."
+                      : "Sent to your tag, but saving to your account failed. Try again later.", saved ? "ok" : "err");
+    } else {
+      setStatus(SEND_ERRORS[result] || `The tag replied “${result}”. Try again.`, "err");
+    }
   } catch (err) {
-    setStatus(err.name === "NotAllowedError" ? "NFC permission was denied."
-              : `Couldn't write to the tag (${err.message}). Press the button and hold your phone flat on the tag for a few seconds.`, "err");
+    if (err.name === "NotFoundError") {
+      setStatus("No tag chosen. Make sure the tag is on and showing its QR code, then try again.", "err");
+    } else {
+      setStatus(`Couldn't reach your tag (${err.message}). Move closer and try again.`, "err");
+    }
   } finally {
     button.disabled = false;
   }
