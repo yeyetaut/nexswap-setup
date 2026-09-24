@@ -50,6 +50,20 @@
   #status.ok { color: var(--ok); }
   #status.err { color: var(--err); }
   .warn { background: #ff6b6b1f; border: 1px solid #ff6b6b66; color: var(--text); padding: 12px 14px; border-radius: 12px; margin: 12px 0; }
+  .account { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin: 16px 0 4px; }
+  .account p { margin: 0; }
+  .btn-google {
+    display: flex; align-items: center; justify-content: center; gap: 10px; background: #ffffff; color: #1f1f1f;
+    font-size: 16px; padding: 13px; margin-bottom: 10px;
+  }
+  .btn-google svg { width: 20px; height: 20px; flex: none; }
+  .signed-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .signed-in p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+  .btn-link { width: auto; padding: 8px 4px; background: none; color: var(--dim); font-size: 14px; font-weight: 500; text-decoration: underline; }
+  .btn-danger { background: none; border: 1px solid #ff6b6b66; color: var(--err); font-size: 15px; padding: 12px; margin-top: 12px; }
+  details.privacy { margin-top: 28px; color: var(--dim); font-size: 14px; }
+  details.privacy summary { cursor: pointer; color: var(--text); }
+  details.privacy p { margin: 8px 0 0; }
   @media (max-width: 380px) { .goals { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -60,6 +74,20 @@
   <div id="unsupported" class="warn" hidden>
     This page needs Chrome on an Android phone with NFC switched on (Web NFC). iPhones aren't supported yet.
   </div>
+
+  <section class="account" aria-label="Account">
+    <div id="signed-out">
+      <button id="google" class="btn-google" type="button">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+        Continue with Google
+      </button>
+      <p class="hint">Save your profile once and reuse it at every event, on any phone. Or skip this: the form is still remembered on this phone.</p>
+    </div>
+    <div id="signed-in" class="signed-in" hidden>
+      <p>Signed in as <strong id="who"></strong></p>
+      <button id="signout" class="btn-link" type="button">Sign out</button>
+    </div>
+  </section>
 
   <form id="form" autocomplete="on">
     <h2>About you</h2>
@@ -82,6 +110,17 @@
     </div>
     <p class="hint">You'll match with people nearby who want what you offer, or offer what you want.</p>
   </form>
+
+  <details class="privacy">
+    <summary>Privacy</summary>
+    <p>Your profile (first name, company, title, LinkedIn URL, interests and goals) is written to your NexSwap tag,
+       which shares your first name, interests and goals with other tags nearby so you can be matched.</p>
+    <p>If you continue with Google, the same profile is saved to your NexSwap account (Google Firebase, Singapore region)
+       so you can reuse it at future events. We use your Google sign-in only to identify your account; we don't store
+       your email in your profile. You can delete your saved profile at any time below.</p>
+    <p>Without signing in, your profile is only kept in this browser on this phone.</p>
+    <button id="delete" class="btn-danger" type="button" hidden>Delete my saved profile</button>
+  </details>
 </main>
 
 <div class="bar"><div class="bar-inner">
@@ -89,7 +128,25 @@
   <button id="write" type="button">Write to my tag</button>
 </div></div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+// Public web config (identifies the project; access is enforced by firestore.rules)
+const app = initializeApp({
+  apiKey: "AIzaSyAhs52vfMHG0cHnZES7c4en2oa-WClXnBA",
+  authDomain: "nexswap-73e83.firebaseapp.com",
+  projectId: "nexswap-73e83",
+  appId: "1:645104297524:web:806a07052336a65dbc0c61",
+  messagingSenderId: "645104297524",
+});
+const auth = getAuth(app);
+const db = getFirestore(app);
+let user = null;
+
 // Must match include/Taxonomy.h (same order, TAXONOMY_VERSION 1)
 const INTERESTS = ["AI", "Fintech", "Healthtech", "Climate", "Web3", "SaaS", "E-commerce", "Edtech",
   "Robotics", "Hardware", "Cybersecurity", "Data", "Design", "Marketing", "Sales", "Product",
@@ -159,17 +216,89 @@ if (!("NDEFReader" in window)) {
   button.disabled = true;
 }
 
+// ---------- account ----------
+const profileRef = () => doc(db, "profiles", user.uid);
+
+function formProfile() {
+  const v = id => clean(document.getElementById(id).value);
+  return { first: v("first"), company: v("company"), title: v("title"), linkedin: v("linkedin"),
+           interests: mask("interests"), offer: mask("offer"), seek: mask("seek") };
+}
+
+function fillForm(p) {
+  ["first", "company", "title", "linkedin"].forEach(id => document.getElementById(id).value = p[id] || "");
+  [["interests", p.interests], ["offer", p.offer], ["seek", p.seek]].forEach(([id, m]) =>
+    document.querySelectorAll(`#${id} input`).forEach(cb => cb.checked = !!((m || 0) & (1 << Number(cb.value)))));
+  saveForm();
+}
+
+async function saveToAccount() {
+  if (!user) return true;
+  try {
+    await setDoc(profileRef(), { ...formProfile(), updatedAt: serverTimestamp() });
+    return true;
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
+}
+
+document.getElementById("google").addEventListener("click", async () => {
+  try {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  } catch (e) {
+    if (e.code !== "auth/popup-closed-by-user") setStatus(`Sign-in failed: ${e.message}`, "err");
+  }
+});
+document.getElementById("signout").addEventListener("click", () => signOut(auth));
+document.getElementById("delete").addEventListener("click", async () => {
+  if (!user || !confirm("Delete your saved NexSwap profile? Your tag keeps its current profile until you write a new one.")) return;
+  try {
+    await deleteDoc(profileRef());
+    try { localStorage.removeItem("nexswap-profile"); } catch (e) {}
+    await signOut(auth);
+    setStatus("Your saved profile was deleted.", "ok");
+  } catch (e) {
+    setStatus(`Couldn't delete: ${e.message}`, "err");
+  }
+});
+
+onAuthStateChanged(auth, async (u) => {
+  user = u;
+  document.getElementById("signed-out").hidden = !!u;
+  document.getElementById("signed-in").hidden = !u;
+  document.getElementById("delete").hidden = !u;
+  if (!u) return;
+  document.getElementById("who").textContent = u.email || u.displayName || "your Google account";
+  try {
+    const snap = await getDoc(profileRef());
+    if (snap.exists()) {
+      fillForm(snap.data());
+      setStatus("Loaded your saved profile.", "ok");
+    } else {
+      if (!document.getElementById("first").value && u.displayName) {
+        document.getElementById("first").value = u.displayName.split(" ")[0].slice(0, 12);
+      }
+      setStatus("Signed in. Fill in your profile, then write it to your tag.");
+    }
+  } catch (e) {
+    setStatus(`Couldn't load your saved profile: ${e.message}`, "err");
+  }
+});
+
 button.addEventListener("click", async () => {
   const first = document.getElementById("first");
   if (!first.value.trim()) { first.focus(); setStatus("Add your first name first.", "err"); return; }
   saveForm();
   button.disabled = true;
+  const saved = await saveToAccount();
   setStatus("Hold your phone against the back of your tag…");
   try {
     const ndef = new NDEFReader();
     await ndef.write({ records: [{ recordType: "mime", mediaType: MIME, data: new TextEncoder().encode(payload()) }] },
                      { overwrite: true });
-    setStatus("Saved! Your tag should say “Profile saved”.", "ok");
+    setStatus(saved ? "Saved! Your tag should say “Profile saved”."
+                    : "Written to your tag, but saving to your account failed. Try again later.", saved ? "ok" : "err");
   } catch (err) {
     setStatus(err.name === "NotAllowedError" ? "NFC permission was denied." : `Couldn't write: ${err.message}. Try again and hold still.`, "err");
   } finally {

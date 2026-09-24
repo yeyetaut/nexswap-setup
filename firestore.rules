@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// One document per signed-in person at profiles/{uid}. Only its owner can read, write or delete it.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Same limits as the tag firmware (include/Profile.c) and the setup page
+    function validProfile(d) {
+      return d.keys().hasOnly(['first', 'company', 'title', 'linkedin', 'interests', 'offer', 'seek', 'updatedAt'])
+        && d.first is string && d.first.size() > 0 && d.first.size() <= 12
+        && d.company is string && d.company.size() <= 47
+        && d.title is string && d.title.size() <= 47
+        && d.linkedin is string && d.linkedin.size() <= 99
+        && d.interests is int && d.interests >= 0 && d.interests <= 4294967295
+        && d.offer is int && d.offer >= 0 && d.offer <= 255
+        && d.seek is int && d.seek >= 0 && d.seek <= 255
+        && d.updatedAt == request.time;
+    }
+
+    match /profiles/{uid} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validProfile(request.resource.data);
+    }
+  }
+}
