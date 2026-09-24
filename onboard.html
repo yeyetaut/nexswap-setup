@@ -256,6 +256,9 @@
   </section>
 
   <section id="matches-section" role="tabpanel" aria-labelledby="tab-matches" hidden>
+    <div id="demo-banner" class="banner" hidden>
+      <span><strong>Demo preview.</strong> These are sample people, not real matches. Nothing here is saved.</span>
+    </div>
     <h1>Your matches</h1>
     <p class="lead" id="matches-hint">People your tag matched with at events appear here after you sync.</p>
     <ul id="match-list" class="match-list"></ul>
@@ -310,6 +313,15 @@ const SYNC_MATCHES  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570005";
 
 // The QR code on the tag opens this page with ?tag=<8-hex tag ID>&k=<6-hex one-time code>
 const params = new URLSearchParams(location.search);
+// ?demo=1 fills the Matches tab with sample people (drawn by the real rendering code), no sign-in, nothing saved
+const DEMO = params.get("demo") === "1";
+const DEMO_CARDS = {
+  "demo-alex":  { first: "Alex", company: "Demo Co", title: "Head of Sales", linkedin: "https://www.linkedin.com/company/nexswap/",
+                  email: "alex@example.com", photoURL: "", interests: 0x4001, offer: 0x05, seek: 0x10 },
+  "demo-priya": { first: "Priya", company: "Orbit Labs", title: "Founder", linkedin: "https://www.linkedin.com/company/nexswap/",
+                  photoURL: "", interests: 0x0804, offer: 0x08, seek: 0x02 },
+};
+const DEMO_ROWS = [{ uid: "demo-alex" }, { uid: "demo-priya" }, { uid: "demo-waiting" }];
 const TAG_ID = /^[0-9A-Fa-f]{8}$/.test(params.get("tag") || "") ? params.get("tag").toUpperCase() : "";
 const SETUP_CODE = /^[0-9A-Fa-f]{6}$/.test(params.get("k") || "") ? params.get("k").toUpperCase() : "";
 
@@ -407,8 +419,9 @@ function render() {
   document.getElementById("matches-section").hidden = onProfile;
   document.getElementById("tab-profile").setAttribute("aria-selected", onProfile);
   document.getElementById("tab-matches").setAttribute("aria-selected", !onProfile);
-  document.getElementById("matches-signin").hidden = onProfile || !!user;
-  if (!onProfile && !user) { document.getElementById("match-list").replaceChildren(); }
+  document.getElementById("matches-signin").hidden = onProfile || !!user || DEMO;
+  document.getElementById("demo-banner").hidden = !DEMO;
+  if (!onProfile && !user && !DEMO) { document.getElementById("match-list").replaceChildren(); }
 
   syncButton.hidden = onProfile || !user;
   button.hidden = !onProfile;
@@ -585,7 +598,7 @@ onAuthStateChanged(auth, async (u) => {
     setStatus(`Couldn't load your saved profile: ${e.message}`, "err");
   }
   try {
-    await resolvePending();
+    if (!DEMO) await resolvePending();   // demo mode never touches real data
     await renderMatches();
   } catch (e) {
     console.error(e);
@@ -700,19 +713,27 @@ function el(tag, className, text) {
 async function renderMatches() {
   const list = document.getElementById("match-list");
   const hint = document.getElementById("matches-hint");
-  const snap = await getDocs(collection(db, "matches", user.uid, "with"));
-  const pending = await getDocs(collection(db, "matches", user.uid, "pendingTags"));
-  const rows = snap.docs.map(d => ({ uid: d.id, ...d.data() }))
-    .sort((a, b) => (b.savedAt?.toMillis?.() || 0) - (a.savedAt?.toMillis?.() || 0));
+  let rows, pending, loadCard;
+  if (DEMO) {
+    rows = DEMO_ROWS;
+    pending = { size: 1 };
+    loadCard = async uid => DEMO_CARDS[uid] || null;
+  } else {
+    const snap = await getDocs(collection(db, "matches", user.uid, "with"));
+    pending = await getDocs(collection(db, "matches", user.uid, "pendingTags"));
+    rows = snap.docs.map(d => ({ uid: d.id, ...d.data() }))
+      .sort((a, b) => (b.savedAt?.toMillis?.() || 0) - (a.savedAt?.toMillis?.() || 0));
+    loadCard = async uid => {
+      const c = await getDoc(doc(db, "cards", uid));   // refused until they have synced this match too
+      return c.exists() ? c.data() : null;
+    };
+  }
   list.replaceChildren();
 
   let waiting = 0;
   for (const row of rows) {
     let card = null;
-    try {
-      const c = await getDoc(doc(db, "cards", row.uid));   // refused until they have synced this match too
-      if (c.exists()) card = c.data();
-    } catch (e) {}
+    try { card = await loadCard(row.uid); } catch (e) {}
     const li = el("li", card ? "match fade" : "match waiting fade");
     const face = el("div", "initials", card ? (card.first || "?").slice(0, 1).toUpperCase() : "…");
     if (card && /^https:\/\//.test(card.photoURL || "")) {
@@ -968,6 +989,7 @@ document.addEventListener("touchcancel", () => { if (drag?.el) resetPanel(drag.e
 // First paint: returning visitors (profile remembered on this phone) get the one-tap summary
 updateInterestCount();
 if (hasProfile()) mode = "summary";
+if (DEMO) { activeTab = "matches"; renderMatches(); }
 render();
 </script>
 </body>
