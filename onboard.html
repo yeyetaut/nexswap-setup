@@ -325,12 +325,24 @@ button.addEventListener("click", async () => {
   setStatus("Hold your phone against the back of your tag…");
   try {
     const ndef = new NDEFReader();
-    await ndef.write({ records: [{ recordType: "mime", mediaType: MIME, data: new TextEncoder().encode(payload()) }] },
-                     { overwrite: true });
+    const message = { records: [{ recordType: "mime", mediaType: MIME, data: new TextEncoder().encode(payload()) }] };
+    // Android reads the tag before Chrome writes, and the connection can drop in between ("IO error").
+    // The phone is usually still on the tag, so try again a couple of times before giving up.
+    const ATTEMPTS = 3;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await ndef.write(message, { overwrite: true });
+        break;
+      } catch (err) {
+        if (err.name !== "NetworkError" || attempt >= ATTEMPTS) throw err;
+        setStatus(`Keep holding… (try ${attempt + 1} of ${ATTEMPTS})`);
+      }
+    }
     setStatus(saved ? "Saved! Your tag should say “Profile saved”."
                     : "Written to your tag, but saving to your account failed. Try again later.", saved ? "ok" : "err");
   } catch (err) {
-    setStatus(err.name === "NotAllowedError" ? "NFC permission was denied." : `Couldn't write: ${err.message}. Try again and hold still.`, "err");
+    setStatus(err.name === "NotAllowedError" ? "NFC permission was denied."
+              : `Couldn't write to the tag (${err.message}). Press the button and hold your phone flat on the tag for a few seconds.`, "err");
   } finally {
     button.disabled = false;
   }
