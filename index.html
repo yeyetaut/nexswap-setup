@@ -21,6 +21,14 @@
   [hidden] { display: none !important; }
   @media (prefers-reduced-motion: no-preference) { .fade { animation: fade .2s ease-out; } }
   @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  /* Swipe navigation: the new page slides in from the side it came from */
+  @media (prefers-reduced-motion: no-preference) {
+    .from-right { animation: from-right .22s ease-out; }
+    .from-left { animation: from-left .22s ease-out; }
+  }
+  @keyframes from-right { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+  @keyframes from-left { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+  body { touch-action: pan-y; }   /* let the browser scroll vertically; horizontal swipes are ours */
 
   /* Header + tabs */
   .top { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: calc(10px + env(safe-area-inset-top)) 16px 0; }
@@ -839,6 +847,62 @@ button.addEventListener("click", async () => {
     setBusy(false);
   }
 });
+
+// ---------- swipe between pages ----------
+// Wizard: left = next step, right = previous (never sends). Otherwise: left/right switches the two tabs.
+function slideIn(el, fromRight) {
+  if (!el) return;
+  el.classList.remove("from-right", "from-left");
+  void el.offsetWidth;                                   // restart the animation
+  el.classList.add(fromRight ? "from-right" : "from-left");
+}
+
+function swipe(direction) {
+  const next = direction === "left";
+  if (activeTab === "profile" && mode === "wizard") {
+    if (next && step < 3) {
+      if (step === 1 && !document.getElementById("first").value.trim()) {
+        setStatus("Add your first name to continue.", "err");
+        return;
+      }
+      setStatus("");
+      step++;
+    } else if (!next && step > 1) {
+      step--;
+    } else {
+      return;
+    }
+    render();
+    window.scrollTo(0, 0);
+    slideIn(document.querySelector(`.step[data-step="${step}"]`), next);
+    return;
+  }
+  if (next && activeTab === "profile") activeTab = "matches";
+  else if (!next && activeTab === "matches") activeTab = "profile";
+  else return;
+  render();
+  window.scrollTo(0, 0);
+  slideIn(document.getElementById(activeTab === "profile" ? "view-profile" : "matches-section"), next);
+}
+
+let touchStart = null;
+const swipeArea = document;   // the whole screen, so short pages (empty matches) still swipe
+swipeArea.addEventListener("touchstart", e => {
+  touchStart = null;
+  if (e.touches.length !== 1 || busy) return;
+  const t = e.touches[0];
+  if (t.clientX < 24 || t.clientX > window.innerWidth - 24) return;   // screen edges belong to the system back gesture
+  if (e.target.closest(".bar")) return;                                // the action bar is for tapping
+  touchStart = { x: t.clientX, y: t.clientY, time: Date.now() };
+}, { passive: true });
+swipeArea.addEventListener("touchend", e => {
+  if (!touchStart) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y, dt = Date.now() - touchStart.time;
+  touchStart = null;
+  if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5 || dt > 700) return;   // clearly horizontal and quick
+  swipe(dx < 0 ? "left" : "right");
+}, { passive: true });
 
 // First paint: returning visitors (profile remembered on this phone) get the one-tap summary
 updateInterestCount();
