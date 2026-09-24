@@ -2,162 +2,257 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>NexSwap Setup</title>
+<meta name="theme-color" content="#121016">
+<title>NexSwap</title>
 <style>
+  /* Mobile-first: one column, 48px touch targets, primary action in a sticky bottom bar (thumb zone) */
   :root {
-    --bg: #121016; --surface: #1e1a24; --border: #2e2838; --accent: #862eaf; --accent-soft: #862eaf33;
-    --text: #ffffff; --dim: #a09aae; --ok: #3ddc84; --err: #ff6b6b;
+    --bg: #121016; --surface: #1e1a24; --surface-2: #26212e; --border: #2e2838; --accent: #862eaf; --accent-hi: #a24fd0;
+    --accent-soft: #862eaf2e; --text: #ffffff; --dim: #a09aae; --ok: #3ddc84; --err: #ff6b6b;
+    --radius: 14px; --tap: 48px;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { scroll-padding-bottom: 160px; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 560px; margin: 0 auto; padding: 24px 16px 120px; }
-  h1 { font-size: 26px; margin: 0 0 4px; }
-  h2 { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 28px 0 10px; }
-  p.lead { color: var(--dim); margin: 0 0 8px; }
-  label.field { display: block; margin-bottom: 14px; }
-  label.field span { display: block; font-size: 14px; color: var(--dim); margin-bottom: 6px; }
-  input[type=text], input[type=url] {
-    width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
-    background: var(--surface); color: var(--text); font-size: 16px;
-  }
-  input:focus { outline: 2px solid var(--accent); border-color: transparent; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip input { position: absolute; opacity: 0; pointer-events: none; }
-  .chip span {
-    display: inline-block; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
-    background: var(--surface); color: var(--dim); font-size: 14px; cursor: pointer; user-select: none;
-  }
-  .chip input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--text); }
-  .chip input:focus-visible + span { outline: 2px solid var(--text); }
-  .goals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
-  .goals .col h3 { font-size: 14px; color: var(--dim); font-weight: 600; margin: 0 0 8px; }
-  .goals .chips { flex-direction: column; align-items: stretch; }
-  .goals .chip span { display: block; }
-  .hint { font-size: 13px; color: var(--dim); margin: 6px 0 0; }
-  .bar {
-    position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-    background: linear-gradient(transparent, var(--bg) 30%);
-  }
-  .bar-inner { max-width: 560px; margin: 0 auto; }
-  button {
-    width: 100%; padding: 16px; border: 0; border-radius: 14px; background: var(--accent); color: var(--text);
-    font-size: 17px; font-weight: 600; cursor: pointer;
-  }
-  button:disabled { opacity: .5; cursor: default; }
-  #status { min-height: 22px; margin: 0 0 8px; text-align: center; font-size: 15px; color: var(--dim); }
-  #status.ok { color: var(--ok); }
-  #status.err { color: var(--err); }
-  .warn { background: #ff6b6b1f; border: 1px solid #ff6b6b66; color: var(--text); padding: 12px 14px; border-radius: 12px; margin: 12px 0; }
-  .account { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin: 16px 0 4px; }
-  .account p { margin: 0; }
-  .btn-google {
-    display: flex; align-items: center; justify-content: center; gap: 10px; background: #ffffff; color: #1f1f1f;
-    font-size: 16px; padding: 13px; margin-bottom: 10px;
-  }
-  .btn-google svg { width: 20px; height: 20px; flex: none; }
-  .signed-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .signed-in p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; flex: 1; }
+  button, input { font: inherit; }
+  :focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: no-preference) { .fade { animation: fade .2s ease-out; } }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* Header + tabs */
+  .top { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: calc(10px + env(safe-area-inset-top)) 16px 0; }
+  .top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 560px; margin: 0 auto; min-height: var(--tap); }
+  .brand { font-weight: 700; font-size: 20px; letter-spacing: .01em; }
+  .brand span { color: var(--accent-hi); }
+  .me { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .me p { margin: 0; font-size: 14px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }
   .avatar { width: 32px; height: 32px; border-radius: 50%; flex: none; object-fit: cover; background: var(--border); }
-  .btn-link { width: auto; padding: 8px 4px; background: none; color: var(--dim); font-size: 14px; font-weight: 500; text-decoration: underline; }
-  .btn-danger { background: none; border: 1px solid #ff6b6b66; color: var(--err); font-size: 15px; padding: 12px; margin-top: 12px; }
-  details.privacy { margin-top: 28px; color: var(--dim); font-size: 14px; }
-  details.privacy summary { cursor: pointer; color: var(--text); }
+  .tabs { display: flex; gap: 4px; max-width: 560px; margin: 8px auto 0; border-bottom: 1px solid var(--border); }
+  .tab { flex: 1; min-height: var(--tap); background: none; border: 0; color: var(--dim); font-weight: 600; font-size: 15px;
+         border-bottom: 2px solid transparent; cursor: pointer; }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent-hi); }
+  .badge { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 6px; border-radius: 999px; background: var(--accent);
+           color: var(--text); font-size: 12px; line-height: 20px; }
+
+  main { max-width: 560px; margin: 0 auto; padding: 16px 16px 190px; }
+  h1 { font-size: 24px; line-height: 1.25; margin: 4px 0 6px; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  .lead { color: var(--dim); margin: 0 0 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin: 0 0 16px; }
+  .banner { display: flex; gap: 12px; align-items: center; background: var(--accent-soft); border: 1px solid #862eaf66;
+            border-radius: var(--radius); padding: 12px 14px; margin: 0 0 16px; font-size: 15px; }
+  .banner svg { flex: none; width: 24px; height: 24px; }
+  .warn { background: #ff6b6b1f; border: 1px solid #ff6b6b66; border-radius: var(--radius); padding: 12px 14px; margin: 0 0 16px; font-size: 15px; }
+  .hint { font-size: 14px; color: var(--dim); margin: 6px 0 0; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); padding: 0 18px;
+         border-radius: 12px; border: 0; cursor: pointer; font-weight: 600; font-size: 16px; text-decoration: none; }
+  .btn-primary { background: var(--accent); color: var(--text); width: 100%; font-size: 17px; }
+  .btn-primary:active { background: var(--accent-hi); }
+  .btn-ghost { background: none; color: var(--text); border: 1px solid var(--border); }
+  .btn-link { background: none; color: var(--dim); font-weight: 500; font-size: 14px; padding: 0 8px; text-decoration: underline; }
+  .btn-google { width: 100%; background: #ffffff; color: #1f1f1f; }
+  .btn-google svg { width: 20px; height: 20px; }
+  .btn-danger { width: 100%; background: none; border: 1px solid #ff6b6b66; color: var(--err); margin-top: 12px; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #ffffff55; border-top-color: #fff; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Summary (returning users: one tap to send) */
+  .summary .name { font-size: 22px; font-weight: 700; margin: 0; }
+  .summary .sub { color: var(--dim); margin: 2px 0 12px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .pills li { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--dim); }
+  .pills li.goal { background: var(--accent-soft); color: var(--text); }
+  .summary .btn-ghost { width: 100%; margin-top: 14px; }
+
+  /* Wizard */
+  .stepper { display: flex; align-items: center; justify-content: space-between; margin: 0 0 14px; }
+  .stepper p { margin: 0; color: var(--dim); font-size: 14px; }
+  .dots { display: flex; gap: 6px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+  .dots i.on { background: var(--accent-hi); width: 22px; border-radius: 4px; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  legend { font-size: 20px; font-weight: 700; padding: 0; margin: 0 0 4px; }
+  label.field { display: block; margin: 16px 0 0; }
+  label.field > span { display: block; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  input[type=text], input[type=url] {
+    width: 100%; min-height: var(--tap); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 16px;   /* 16px stops iOS zooming on focus */
+  }
+  input:focus { outline: 2px solid var(--accent-hi); border-color: transparent; }
+  .toggle { display: flex; align-items: center; gap: 12px; min-height: var(--tap); margin: 12px 0 0; font-size: 15px; }
+  .toggle input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+
+  /* Chips: 48px targets, 8px gaps, checkmark when selected */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .chip { position: relative; }
+  .chip input { position: absolute; opacity: 0; pointer-events: none; }
+  .chip span { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 999px;
+               border: 1px solid var(--border); background: var(--surface); color: var(--dim); font-size: 15px; cursor: pointer; user-select: none; }
+  .chip input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--text); }
+  .chip input:checked + span::before { content: "✓"; font-weight: 700; }
+  .chip input:focus-visible + span { outline: 2px solid var(--text); }
+  .counter { font-size: 14px; color: var(--dim); margin: 10px 0 0; }
+  /* Goals: full-width rows instead of two cramped columns */
+  .goal-group h3 { font-size: 15px; margin: 18px 0 0; }
+  .goal-group .chips { flex-direction: column; gap: 8px; margin-top: 8px; }
+  .goal-group .chip span { display: flex; width: 100%; min-height: var(--tap); border-radius: 12px; padding: 0 14px; }
+
+  details.privacy { margin-top: 24px; color: var(--dim); font-size: 14px; }
+  details.privacy summary { cursor: pointer; color: var(--text); min-height: var(--tap); display: flex; align-items: center; }
   details.privacy p { margin: 8px 0 0; }
-  .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 28px 0 10px; }
-  .section-head h2 { margin: 0; }
-  .btn-secondary { width: auto; padding: 9px 14px; font-size: 14px; background: none; border: 1px solid var(--accent); color: var(--text); border-radius: 999px; }
-  .match-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .match { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+
+  /* Matches */
+  .match-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .match { display: grid; grid-template-columns: 44px 1fr; gap: 12px; background: var(--surface); border: 1px solid var(--border);
+           border-radius: var(--radius); padding: 14px; }
+  .initials { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
+              background: var(--accent-soft); color: var(--text); overflow: hidden; }
+  .initials img { width: 100%; height: 100%; object-fit: cover; }
   .match .name { font-size: 17px; font-weight: 600; margin: 0; }
   .match .sub { color: var(--dim); font-size: 14px; margin: 2px 0 0; }
   .match .why { color: #c89be0; font-size: 13px; margin: 8px 0 0; }
-  .match .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  .match .actions a { color: var(--text); text-decoration: none; font-size: 14px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); }
-  .match.waiting .name { color: var(--dim); font-weight: 500; font-size: 15px; }
-  .toggle { display: flex; align-items: center; gap: 10px; font-size: 15px; margin: 4px 0 14px; }
-  .toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
-  @media (max-width: 380px) { .goals { grid-template-columns: 1fr; } }
+  .match .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .match .actions .btn { min-height: 44px; padding: 0 14px; font-size: 15px; }
+  .match.waiting { opacity: .75; }
+  .empty { text-align: center; color: var(--dim); padding: 28px 12px; }
+  .empty strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 6px; }
+
+  /* Sticky action bar in the thumb zone */
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+         background: linear-gradient(transparent, var(--bg) 28%); }
+  .bar-inner { max-width: 560px; margin: 0 auto; }
+  .status { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px;
+            background: var(--surface-2); border: 1px solid var(--border); font-size: 15px; }
+  .status.ok { border-color: #3ddc8466; }
+  .status.ok::before { content: "✓"; color: var(--ok); font-weight: 700; }
+  .status.err { border-color: #ff6b6b66; }
+  .status.err::before { content: "!"; color: var(--err); font-weight: 700; }
+  .actions-row { display: flex; gap: 10px; }
+  .actions-row .btn-ghost { flex: 0 0 auto; }
 </style>
 </head>
 <body>
-<main>
-  <h1>Set up your NexSwap tag</h1>
-  <p class="lead" id="lead">Fill this in, then press “Send to my tag”. Keep your phone near the tag (Bluetooth on).</p>
-  <div id="unsupported" class="warn" hidden>
-    Sending to the tag needs Chrome on Android with Bluetooth on. On iPhone, open this page in the Bluefy browser.
-    You can still sign in and save your profile here.
+<header class="top">
+  <div class="top-row">
+    <div class="brand">Nex<span>Swap</span></div>
+    <div class="me" id="signed-in" hidden>
+      <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
+      <p id="who"></p>
+      <button id="signout" class="btn btn-link" type="button">Sign out</button>
+    </div>
   </div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" id="tab-profile" aria-controls="view-profile" aria-selected="true" type="button">My profile</button>
+    <button class="tab" role="tab" id="tab-matches" aria-controls="matches-section" aria-selected="false" type="button">Matches<span class="badge" id="match-count" hidden></span></button>
+  </nav>
+</header>
 
-  <section class="account" aria-label="Account">
-    <div id="signed-out">
-      <button id="google" class="btn-google" type="button">
+<main>
+  <section id="view-profile" role="tabpanel" aria-labelledby="tab-profile">
+    <div id="tag-banner" class="banner" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 7h6M9 11h6"/></svg>
+      <span>Setting up tag <strong id="tag-id"></strong>. Keep your phone near it with Bluetooth on.</span>
+    </div>
+    <div id="unsupported" class="warn" hidden>
+      Sending to a tag needs Chrome on Android with Bluetooth on. On iPhone, open this page in the Bluefy browser.
+      You can still sign in and save your profile here.
+    </div>
+
+    <div id="signed-out" class="card">
+      <h2>Save your profile once</h2>
+      <p class="hint" style="margin:0 0 14px">Sign in to reuse it at every event on any phone, and to see your matches.</p>
+      <button id="google" class="btn btn-google" type="button">
         <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
         Continue with Google
       </button>
-      <p class="hint">Save your profile once and reuse it at every event, on any phone. Or skip this: the form is still remembered on this phone.</p>
+      <p class="hint">Or skip this: your profile is still remembered on this phone.</p>
     </div>
-    <div id="signed-in" class="signed-in" hidden>
-      <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
-      <p>Signed in as <strong id="who"></strong></p>
-      <button id="signout" class="btn-link" type="button">Sign out</button>
+
+    <!-- Returning users: a summary and one button, no form to page through -->
+    <div id="summary" class="card summary fade" hidden>
+      <p class="name" id="sum-name"></p>
+      <p class="sub" id="sum-sub"></p>
+      <ul class="pills" id="sum-pills"></ul>
+      <button id="edit" class="btn btn-ghost" type="button">Edit profile</button>
     </div>
+
+    <!-- New users: three short steps -->
+    <form id="form" autocomplete="on" novalidate>
+      <div class="stepper" id="stepper">
+        <p id="step-label">Step 1 of 3</p>
+        <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+      </div>
+
+      <fieldset class="step fade" data-step="1">
+        <legend>About you</legend>
+        <p class="hint" style="margin:0">Your first name shows big on your tag.</p>
+        <label class="field"><span>First name</span>
+          <input type="text" id="first" maxlength="12" required autocomplete="given-name" enterkeyhint="next"></label>
+        <label class="field"><span>Company</span>
+          <input type="text" id="company" maxlength="47" autocomplete="organization" enterkeyhint="next"></label>
+        <label class="field"><span>Role or title</span>
+          <input type="text" id="title" maxlength="47" autocomplete="organization-title" enterkeyhint="next"></label>
+        <label class="field"><span>LinkedIn profile link</span>
+          <input type="url" id="linkedin" maxlength="99" inputmode="url" autocomplete="url" enterkeyhint="done"
+                 placeholder="https://www.linkedin.com/in/…">
+          <p class="hint">People who tap your tag, and your matches, get this link.</p></label>
+        <label class="toggle" id="share-email-row" hidden>
+          <input type="checkbox" id="share-email"> Share my email with my matches</label>
+      </fieldset>
+
+      <fieldset class="step fade" data-step="2" hidden>
+        <legend>Your interests</legend>
+        <p class="hint" style="margin:0">Pick 3 to 5. People who share them are more likely to match with you.</p>
+        <div class="chips" id="interests"></div>
+        <p class="counter" id="interest-count" aria-live="polite">0 selected</p>
+      </fieldset>
+
+      <fieldset class="step fade" data-step="3" hidden>
+        <legend>What are you here for?</legend>
+        <p class="hint" style="margin:0">You match with people who want what you offer, or offer what you want.</p>
+        <div class="goal-group"><h3>I can offer</h3><div class="chips" id="offer"></div></div>
+        <div class="goal-group"><h3>I'm looking for</h3><div class="chips" id="seek"></div></div>
+      </fieldset>
+    </form>
+
+    <details class="privacy">
+      <summary>Privacy</summary>
+      <p>Your profile (first name, company, title, LinkedIn URL, interests and goals) is written to your NexSwap tag,
+         which shares your first name, interests and goals with other tags nearby so you can be matched.</p>
+      <p>If you continue with Google, the same profile is saved to your NexSwap account (Google Firebase, Singapore region)
+         so you can reuse it at future events. We use your Google sign-in only to identify your account; we don't store
+         your email unless you choose to share it with your matches. You can delete your saved profile and matches at any time below.</p>
+      <p>Your tag remembers who you matched with. When you sync, those matches are saved to your account, and your
+         matches can see your name, company, title, LinkedIn, interests and goals, but only once you have both synced,
+         so nobody can look you up without having actually met you. This page also remembers which tag is yours and a
+         secret key that lets only your phone read your tag's matches.</p>
+      <p>Without signing in, your profile is only kept in this browser on this phone and matches can't be saved.</p>
+      <button id="delete" class="btn btn-danger" type="button" hidden>Delete my saved profile and matches</button>
+    </details>
   </section>
 
-  <section id="matches-section" hidden aria-label="My matches">
-    <div class="section-head">
-      <h2>My matches</h2>
-      <button id="sync" class="btn-secondary" type="button">Sync from my tag</button>
-    </div>
-    <p class="hint" id="matches-hint">Matches your tag made at events appear here after you sync.</p>
+  <section id="matches-section" role="tabpanel" aria-labelledby="tab-matches" hidden>
+    <h1>Your matches</h1>
+    <p class="lead" id="matches-hint">People your tag matched with at events appear here after you sync.</p>
     <ul id="match-list" class="match-list"></ul>
+    <div id="matches-signin" class="empty" hidden><strong>Sign in to see your matches</strong>
+      Matches are saved to your account so you can follow up after the event.</div>
   </section>
-
-  <form id="form" autocomplete="on">
-    <h2>About you</h2>
-    <label class="field"><span>First name (shown big on your tag)</span>
-      <input type="text" id="first" maxlength="12" required autocomplete="given-name"></label>
-    <label class="field"><span>Company</span>
-      <input type="text" id="company" maxlength="47" autocomplete="organization"></label>
-    <label class="field"><span>Role / title</span>
-      <input type="text" id="title" maxlength="47" autocomplete="organization-title"></label>
-    <label class="field"><span>LinkedIn URL (what people get when they tap your tag)</span>
-      <input type="url" id="linkedin" maxlength="99" placeholder="https://www.linkedin.com/in/…"></label>
-    <label class="toggle" id="share-email-row" hidden>
-      <input type="checkbox" id="share-email"> Share my email with my matches</label>
-
-    <h2>Interests</h2>
-    <div class="chips" id="interests"></div>
-
-    <h2>What are you here for?</h2>
-    <div class="goals">
-      <div class="col"><h3>I can offer</h3><div class="chips" id="offer"></div></div>
-      <div class="col"><h3>I'm looking for</h3><div class="chips" id="seek"></div></div>
-    </div>
-    <p class="hint">You'll match with people nearby who want what you offer, or offer what you want.</p>
-  </form>
-
-  <details class="privacy">
-    <summary>Privacy</summary>
-    <p>Your profile (first name, company, title, LinkedIn URL, interests and goals) is written to your NexSwap tag,
-       which shares your first name, interests and goals with other tags nearby so you can be matched.</p>
-    <p>If you continue with Google, the same profile is saved to your NexSwap account (Google Firebase, Singapore region)
-       so you can reuse it at future events. We use your Google sign-in only to identify your account; we don't store
-       your email unless you choose to share it with your matches. You can delete your saved profile and matches at any time below.</p>
-    <p>Your tag remembers who you matched with. When you sync, those matches are saved to your account, and your
-       matches can see your name, company, title, LinkedIn, interests and goals, but only once you have both synced,
-       so nobody can look you up without having actually met you. Your email is shown to matches only if you turn on
-       “Share my email with my matches”. This page also remembers which tag is yours and a secret key that lets only
-       your phone read your tag's matches.</p>
-    <p>Without signing in, your profile is only kept in this browser on this phone and matches can't be saved.</p>
-    <button id="delete" class="btn-danger" type="button" hidden>Delete my saved profile and matches</button>
-  </details>
 </main>
 
 <div class="bar"><div class="bar-inner">
-  <p id="status" role="status" aria-live="polite"></p>
-  <button id="write" type="button">Send to my tag</button>
+  <p id="status" class="status" role="status" aria-live="polite" hidden></p>
+  <div class="actions-row">
+    <button id="back" class="btn btn-ghost" type="button" hidden>Back</button>
+    <button id="write" class="btn btn-primary" type="button">Next</button>
+    <button id="sync" class="btn btn-primary" type="button" hidden>Sync from my tag</button>
+  </div>
 </div></div>
 
 <script type="module">
@@ -251,18 +346,89 @@ document.getElementById("form").addEventListener("change", saveForm);
 
 const status = document.getElementById("status");
 const button = document.getElementById("write");
-function setStatus(text, kind) { status.textContent = text; status.className = kind || ""; }
+function setStatus(text, kind) {
+  status.textContent = text;
+  status.className = `status ${kind || ""}`;
+  status.hidden = !text;
+}
 
 const canSend = !!(TAG_ID && SETUP_CODE && navigator.bluetooth);
-if (!TAG_ID || !SETUP_CODE) {
-  // Opened without scanning a tag: still useful for signing in and editing the saved profile
-  button.textContent = "Save my profile";
-  document.getElementById("lead").textContent =
-    "To send your profile to a tag, scan the QR code on its screen. You can edit and save your profile here any time.";
-} else if (!navigator.bluetooth) {
-  document.getElementById("unsupported").hidden = false;
-  button.textContent = "Save my profile";
+if (TAG_ID && SETUP_CODE) {
+  document.getElementById("tag-id").textContent = TAG_ID;
+  document.getElementById("tag-banner").hidden = !navigator.bluetooth;
+  document.getElementById("unsupported").hidden = !!navigator.bluetooth;
 }
+
+// ---------- screen state: tabs, 3-step wizard for new profiles, one-tap summary for returning users ----------
+const form = document.getElementById("form");
+const backButton = document.getElementById("back");
+const syncButton = document.getElementById("sync");
+let activeTab = "profile";
+let mode = "wizard";        // "wizard" | "summary"
+let step = 1;
+let busy = false;
+
+const hasProfile = () => !!document.getElementById("first").value.trim();
+const primaryLabel = () => canSend ? "Send to my tag" : "Save my profile";
+
+function fillSummary() {
+  const p = formProfile();
+  document.getElementById("sum-name").textContent = p.first;
+  document.getElementById("sum-sub").textContent = [p.company, p.title].filter(Boolean).join(" · ") || "Add your company and title";
+  const pills = document.getElementById("sum-pills");
+  pills.replaceChildren();
+  const add = (text, goal) => { const li = document.createElement("li"); li.textContent = text; if (goal) li.className = "goal"; pills.append(li); };
+  OFFER.forEach((l, i) => { if (p.offer & (1 << i)) add(l, true); });
+  SEEK.forEach((l, i) => { if (p.seek & (1 << i)) add(l, true); });
+  INTERESTS.forEach((l, i) => { if (p.interests & (1 << i)) add(l); });
+}
+
+function render() {
+  const onProfile = activeTab === "profile";
+  document.getElementById("view-profile").hidden = !onProfile;
+  document.getElementById("matches-section").hidden = onProfile;
+  document.getElementById("tab-profile").setAttribute("aria-selected", onProfile);
+  document.getElementById("tab-matches").setAttribute("aria-selected", !onProfile);
+  document.getElementById("matches-signin").hidden = onProfile || !!user;
+  if (!onProfile && !user) { document.getElementById("match-list").replaceChildren(); }
+
+  syncButton.hidden = onProfile || !user;
+  button.hidden = !onProfile;
+  backButton.hidden = !onProfile || mode === "summary" || step === 1;
+  if (!onProfile) return;
+
+  document.getElementById("summary").hidden = mode !== "summary";
+  form.hidden = mode === "summary";
+  // Sign-in card: only where it helps (first step, or under a returning user's summary), not on every step
+  const signedOut = document.getElementById("signed-out");
+  signedOut.hidden = !!user || (mode === "wizard" && step > 1);
+  const summary = document.getElementById("summary");
+  if (mode === "summary") summary.after(signedOut); else summary.before(signedOut);
+  if (mode === "summary") fillSummary();
+  document.querySelectorAll(".step").forEach(f => f.hidden = Number(f.dataset.step) !== step);
+  document.getElementById("step-label").textContent = `Step ${step} of 3`;
+  document.querySelectorAll(".dots i").forEach((d, i) => d.classList.toggle("on", i === step - 1));
+  if (!busy) button.textContent = mode === "summary" || step === 3 ? primaryLabel() : "Next";
+}
+
+function setBusy(on, label) {
+  busy = on;
+  button.disabled = on;
+  if (on) button.innerHTML = `<span class="spinner" aria-hidden="true"></span>${label}`;
+  render();
+}
+
+function updateInterestCount() {
+  const n = document.querySelectorAll("#interests input:checked").length;
+  document.getElementById("interest-count").textContent =
+    n === 0 ? "0 selected" : n < 3 ? `${n} selected, pick a few more` : n > 5 ? `${n} selected, fewer is fine too` : `${n} selected`;
+}
+document.getElementById("interests").addEventListener("change", updateInterestCount);
+
+document.getElementById("tab-profile").addEventListener("click", () => { activeTab = "profile"; render(); });
+document.getElementById("tab-matches").addEventListener("click", () => { activeTab = "matches"; render(); });
+document.getElementById("edit").addEventListener("click", () => { mode = "wizard"; step = 1; render(); window.scrollTo(0, 0); });
+backButton.addEventListener("click", () => { step = Math.max(1, step - 1); render(); window.scrollTo(0, 0); });
 
 // ---------- company guess from a work email ----------
 // alex@stripe.com -> "Stripe", jo@nus.edu.sg -> "NUS"; personal mail providers give nothing
@@ -338,7 +504,7 @@ document.getElementById("google").addEventListener("click", async () => {
     if (e.code !== "auth/popup-closed-by-user") setStatus(`Sign-in failed: ${e.message}`, "err");
   }
 });
-document.getElementById("signout").addEventListener("click", () => signOut(auth));
+document.getElementById("signout").addEventListener("click", () => { signOut(auth); activeTab = "profile"; render(); });
 document.getElementById("delete").addEventListener("click", async () => {
   if (!user || !confirm("Delete your saved NexSwap profile and matches? Your tag keeps its current profile until you write a new one.")) return;
   try {
@@ -364,11 +530,10 @@ document.getElementById("delete").addEventListener("click", async () => {
 
 onAuthStateChanged(auth, async (u) => {
   user = u;
-  document.getElementById("signed-out").hidden = !!u;
   document.getElementById("signed-in").hidden = !u;
   document.getElementById("delete").hidden = !u;
-  document.getElementById("matches-section").hidden = !u;
   document.getElementById("share-email-row").hidden = !u;
+  render();
   if (!u) return;
   document.getElementById("who").textContent = u.email || u.displayName || "your Google account";
   const avatar = document.getElementById("avatar");
@@ -381,7 +546,11 @@ onAuthStateChanged(auth, async (u) => {
       fillForm(data);
       shareEmail.checked = !!data.shareEmail;
       if (data.tag) rememberTag(data.tag);
-      setStatus("Loaded your saved profile.", "ok");
+      updateInterestCount();
+      mode = "summary";
+      if (!TAG_ID) activeTab = "matches";      // returning visit without a tag: matches are the likely reason
+      render();
+      setStatus("");
     } else {
       if (!document.getElementById("first").value && u.displayName) {
         document.getElementById("first").value = u.displayName.split(" ")[0].slice(0, 12);
@@ -390,8 +559,9 @@ onAuthStateChanged(auth, async (u) => {
       const guess = companyFromEmail(u.email);
       if (!company.value && guess) company.value = guess;
       saveForm();
-      setStatus(guess ? `Signed in. We guessed your company from your email (${guess}); edit it if it's wrong.`
-                      : "Signed in. Fill in your profile, then write it to your tag.");
+      if (!hasProfile()) { mode = "wizard"; step = 1; }
+      render();
+      setStatus(guess ? `We guessed your company from your email (${guess}). Edit it if it's wrong.` : "");
     }
   } catch (e) {
     setStatus(`Couldn't load your saved profile: ${e.message}`, "err");
@@ -525,48 +695,66 @@ async function renderMatches() {
       const c = await getDoc(doc(db, "cards", row.uid));   // refused until they have synced this match too
       if (c.exists()) card = c.data();
     } catch (e) {}
-    const li = el("li", card ? "match" : "match waiting");
+    const li = el("li", card ? "match fade" : "match waiting fade");
+    const face = el("div", "initials", card ? (card.first || "?").slice(0, 1).toUpperCase() : "…");
+    if (card && /^https:\/\//.test(card.photoURL || "")) {
+      const img = document.createElement("img");
+      img.src = card.photoURL; img.alt = ""; img.referrerPolicy = "no-referrer";
+      face.replaceChildren(img);
+    }
+    const body = el("div");
+    li.append(face, body);
     if (!card) {
       waiting++;
-      li.append(el("p", "name", "Waiting for them to sync their tag"),
-                el("p", "sub", "Their details appear here once they sync their matches too."));
+      body.append(el("p", "name", "Waiting for them to sync"),
+                  el("p", "sub", "You'll see who it is once they sync their tag too."));
       list.append(li);
       continue;
     }
-    li.append(el("p", "name", card.first));
+    body.append(el("p", "name", card.first));
     const sub = [card.company, card.title].filter(Boolean).join(" · ");
-    if (sub) li.append(el("p", "sub", sub));
+    if (sub) body.append(el("p", "sub", sub));
     const why = matchReason(card);
-    if (why) li.append(el("p", "why", why));
+    if (why) body.append(el("p", "why", why));
     const actions = el("div", "actions");
     if (/^https:\/\//i.test(card.linkedin || "")) {
-      const a = el("a", "", "LinkedIn");
+      const a = el("a", "btn btn-ghost", "LinkedIn");
       a.href = card.linkedin; a.target = "_blank"; a.rel = "noopener";
       actions.append(a);
     }
     if (card.email) {
-      const a = el("a", "", "Email");
+      const a = el("a", "btn btn-ghost", "Email");
       a.href = `mailto:${card.email}`;
       actions.append(a);
     }
-    if (actions.children.length) li.append(actions);
+    if (actions.children.length) body.append(actions);
     list.append(li);
   }
 
+  if (!rows.length) {
+    const empty = el("li", "empty");
+    empty.append(el("strong", "", pending.size ? "Almost there" : "No matches yet"),
+                 document.createTextNode(myTag ? "Wear your tag at an event, then tap “Sync from my tag”."
+                                               : "Send your profile to your tag first: scan the QR code on its screen."));
+    list.append(empty);
+  }
   const notes = [];
-  if (!rows.length && !pending.size) notes.push(myTag ? "No matches yet. Sync after an event to see who you met."
-                                                      : "Send your profile to your tag first, then sync after an event.");
   if (waiting) notes.push(`${waiting} waiting for the other person to sync.`);
-  if (pending.size) notes.push(`${pending.size} matched with someone who hasn't set up their profile yet.`);
-  hint.textContent = notes.join(" ");
+  if (pending.size) notes.push(`${pending.size} matched with someone who hasn't set up their profile yet. They'll appear once they do.`);
+  hint.textContent = notes.join(" ") || "People your tag matched with. Only people who also synced you can see your details.";
+  const resolved = rows.length - waiting;
+  const badge = document.getElementById("match-count");
+  badge.textContent = resolved;
+  badge.hidden = resolved === 0;
 }
 
 document.getElementById("sync").addEventListener("click", async () => {
   if (!user) return;
   if (!myTag) { setStatus("Send your profile to your tag first: scan the QR code on its screen.", "err"); return; }
   if (!navigator.bluetooth) { setStatus("Syncing needs Chrome on Android with Bluetooth on.", "err"); return; }
-  const sync = document.getElementById("sync");
+  const sync = syncButton;
   sync.disabled = true;
+  sync.innerHTML = `<span class="spinner" aria-hidden="true"></span>Syncing…`;
   let conn = null;
   try {
     setStatus("Choose your tag in the Bluetooth list…");
@@ -582,6 +770,7 @@ document.getElementById("sync").addEventListener("click", async () => {
   } finally {
     if (conn) conn.device.gatt.disconnect();
     sync.disabled = false;
+    sync.textContent = "Sync from my tag";
   }
 });
 
@@ -593,12 +782,21 @@ const SEND_ERRORS = {
 
 button.addEventListener("click", async () => {
   const first = document.getElementById("first");
-  if (!first.value.trim()) { first.focus(); setStatus("Add your first name first.", "err"); return; }
+  if (mode === "wizard" && step === 1 && !first.value.trim()) {
+    first.focus(); setStatus("Add your first name to continue.", "err"); return;
+  }
+  if (mode === "wizard" && step < 3) {
+    setStatus("");
+    step++; render(); window.scrollTo(0, 0);
+    return;
+  }
+  if (!first.value.trim()) { mode = "wizard"; step = 1; render(); first.focus(); setStatus("Add your first name first.", "err"); return; }
   saveForm();
-  button.disabled = true;
+  setBusy(true, canSend ? "Sending…" : "Saving…");
   const saved = await saveToAccount();
   try {
     if (!canSend) {
+      mode = "summary";
       setStatus(saved && user ? "Saved to your account." : "Saved on this phone.", "ok");
       return;
     }
@@ -618,6 +816,7 @@ button.addEventListener("click", async () => {
           accountOk = false;
         }
       }
+      mode = "summary";
       setStatus(accountOk ? "Done! Your tag should say “Profile saved”."
                           : "Sent to your tag, but saving to your account failed. Try again later.", accountOk ? "ok" : "err");
     } else {
@@ -630,9 +829,14 @@ button.addEventListener("click", async () => {
       setStatus(`Couldn't reach your tag (${err.message}). Move closer and try again.`, "err");
     }
   } finally {
-    button.disabled = false;
+    setBusy(false);
   }
 });
+
+// First paint: returning visitors (profile remembered on this phone) get the one-tap summary
+updateInterestCount();
+if (hasProfile()) mode = "summary";
+render();
 </script>
 </body>
 </html>
