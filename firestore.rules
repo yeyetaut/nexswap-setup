@@ -1,17 +1,27 @@
 rules_version = '2';
 
-// One document per signed-in person at profiles/{uid}. Only its owner can read, write or delete it.
+// profiles/{uid}   private profile, owner only
+// cards/{uid}      what matches see; readable by the owner, or by someone with a MUTUAL match (both synced)
+// tagOwners/{tag}  which account a tag belongs to (so synced tag IDs can be turned into people)
+// matches/{uid}/with/{otherUid}, matches/{uid}/pendingTags/{tag}   the owner's own match records
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function signedIn() {
+      return request.auth != null;
+    }
+
     function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isTagId(id) {
+      return id is string && id.matches('^[0-9A-F]{8}$');
     }
 
     // Same limits as the tag firmware (include/Profile.c) and the setup page
-    function validProfile(d) {
-      return d.keys().hasOnly(['first', 'company', 'title', 'linkedin', 'interests', 'offer', 'seek', 'updatedAt'])
-        && d.first is string && d.first.size() > 0 && d.first.size() <= 12
+    function validFields(d) {
+      return d.first is string && d.first.size() > 0 && d.first.size() <= 12
         && d.company is string && d.company.size() <= 47
         && d.title is string && d.title.size() <= 47
         && d.linkedin is string && d.linkedin.size() <= 99
@@ -21,9 +31,67 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
+    function validProfile(d) {
+      return d.keys().hasOnly(['first', 'company', 'title', 'linkedin', 'interests', 'offer', 'seek',
+                               'shareEmail', 'tag', 'updatedAt'])
+        && validFields(d)
+        && (!('shareEmail' in d) || d.shareEmail is bool)
+        && (!('tag' in d) || (d.tag is map && d.tag.keys().hasOnly(['id', 'ownerKey'])
+                              && isTagId(d.tag.id) && d.tag.ownerKey is string && d.tag.ownerKey.matches('^[0-9A-F]{32}$')));
+    }
+
+    function validCard(d) {
+      return d.keys().hasOnly(['first', 'company', 'title', 'linkedin', 'interests', 'offer', 'seek',
+                               'photoURL', 'email', 'updatedAt'])
+        && validFields(d)
+        && d.photoURL is string && d.photoURL.size() <= 1000
+        && (!('email' in d) || (d.email is string && d.email.size() <= 254 && d.email == request.auth.token.email));
+    }
+
+    function matchedBothWays(uid) {
+      return exists(/databases/$(database)/documents/matches/$(request.auth.uid)/with/$(uid))
+        && exists(/databases/$(database)/documents/matches/$(uid)/with/$(request.auth.uid));
+    }
+
     match /profiles/{uid} {
       allow read, delete: if isOwner(uid);
       allow create, update: if isOwner(uid) && validProfile(request.resource.data);
+    }
+
+    match /cards/{uid} {
+      allow read: if isOwner(uid) || (signedIn() && matchedBothWays(uid));
+      allow create, update: if isOwner(uid) && validCard(request.resource.data);
+      allow delete: if isOwner(uid);
+    }
+
+    match /tagOwners/{tagId} {
+      function validOwner(d) {
+        return isTagId(tagId) && d.keys().hasOnly(['uid', 'updatedAt'])
+          && d.uid == request.auth.uid && d.updatedAt == request.time;
+      }
+      allow read: if signedIn();
+      allow create: if signedIn() && validOwner(request.resource.data);
+      // The current owner can refresh it; after 12 h without a refresh the tag can pass to its next attendee
+      allow update: if signedIn() && validOwner(request.resource.data)
+        && (resource.data.uid == request.auth.uid || resource.data.updatedAt < request.time - duration.value(12, 'h'));
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    match /matches/{uid}/with/{otherUid} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && otherUid != uid
+        && request.resource.data.keys().hasOnly(['tagId', 'score', 'savedAt'])
+        && isTagId(request.resource.data.tagId)
+        && request.resource.data.score is int && request.resource.data.score >= 0 && request.resource.data.score <= 255
+        && request.resource.data.savedAt == request.time;
+    }
+
+    match /matches/{uid}/pendingTags/{tagId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && isTagId(tagId)
+        && request.resource.data.keys().hasOnly(['score', 'savedAt'])
+        && request.resource.data.score is int && request.resource.data.score >= 0 && request.resource.data.score <= 255
+        && request.resource.data.savedAt == request.time;
     }
   }
 }

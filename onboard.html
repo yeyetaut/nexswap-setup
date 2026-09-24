@@ -65,6 +65,19 @@
   details.privacy { margin-top: 28px; color: var(--dim); font-size: 14px; }
   details.privacy summary { cursor: pointer; color: var(--text); }
   details.privacy p { margin: 8px 0 0; }
+  .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 28px 0 10px; }
+  .section-head h2 { margin: 0; }
+  .btn-secondary { width: auto; padding: 9px 14px; font-size: 14px; background: none; border: 1px solid var(--accent); color: var(--text); border-radius: 999px; }
+  .match-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .match { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  .match .name { font-size: 17px; font-weight: 600; margin: 0; }
+  .match .sub { color: var(--dim); font-size: 14px; margin: 2px 0 0; }
+  .match .why { color: #c89be0; font-size: 13px; margin: 8px 0 0; }
+  .match .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .match .actions a { color: var(--text); text-decoration: none; font-size: 14px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); }
+  .match.waiting .name { color: var(--dim); font-weight: 500; font-size: 15px; }
+  .toggle { display: flex; align-items: center; gap: 10px; font-size: 15px; margin: 4px 0 14px; }
+  .toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
   @media (max-width: 380px) { .goals { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -92,6 +105,15 @@
     </div>
   </section>
 
+  <section id="matches-section" hidden aria-label="My matches">
+    <div class="section-head">
+      <h2>My matches</h2>
+      <button id="sync" class="btn-secondary" type="button">Sync from my tag</button>
+    </div>
+    <p class="hint" id="matches-hint">Matches your tag made at events appear here after you sync.</p>
+    <ul id="match-list" class="match-list"></ul>
+  </section>
+
   <form id="form" autocomplete="on">
     <h2>About you</h2>
     <label class="field"><span>First name (shown big on your tag)</span>
@@ -102,6 +124,8 @@
       <input type="text" id="title" maxlength="47" autocomplete="organization-title"></label>
     <label class="field"><span>LinkedIn URL (what people get when they tap your tag)</span>
       <input type="url" id="linkedin" maxlength="99" placeholder="https://www.linkedin.com/in/…"></label>
+    <label class="toggle" id="share-email-row" hidden>
+      <input type="checkbox" id="share-email"> Share my email with my matches</label>
 
     <h2>Interests</h2>
     <div class="chips" id="interests"></div>
@@ -120,9 +144,14 @@
        which shares your first name, interests and goals with other tags nearby so you can be matched.</p>
     <p>If you continue with Google, the same profile is saved to your NexSwap account (Google Firebase, Singapore region)
        so you can reuse it at future events. We use your Google sign-in only to identify your account; we don't store
-       your email in your profile. You can delete your saved profile at any time below.</p>
-    <p>Without signing in, your profile is only kept in this browser on this phone.</p>
-    <button id="delete" class="btn-danger" type="button" hidden>Delete my saved profile</button>
+       your email unless you choose to share it with your matches. You can delete your saved profile and matches at any time below.</p>
+    <p>Your tag remembers who you matched with. When you sync, those matches are saved to your account, and your
+       matches can see your name, company, title, LinkedIn, interests and goals, but only once you have both synced,
+       so nobody can look you up without having actually met you. Your email is shown to matches only if you turn on
+       “Share my email with my matches”. This page also remembers which tag is yours and a secret key that lets only
+       your phone read your tag's matches.</p>
+    <p>Without signing in, your profile is only kept in this browser on this phone and matches can't be saved.</p>
+    <button id="delete" class="btn-danger" type="button" hidden>Delete my saved profile and matches</button>
   </details>
 </main>
 
@@ -135,7 +164,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp }
+import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 // Public web config (identifies the project; access is enforced by firestore.rules)
@@ -163,6 +192,8 @@ const SEEK = ["Job hunting", "Raising", "Seeking mentor", "Seeking co-founder",
 const SETUP_SERVICE = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570001";
 const SETUP_PROFILE = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570002";
 const SETUP_STATUS  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570003";
+const SYNC_REQUEST  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570004";
+const SYNC_MATCHES  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570005";
 
 // The QR code on the tag opens this page with ?tag=<8-hex tag ID>&k=<6-hex one-time code>
 const params = new URLSearchParams(location.search);
@@ -253,8 +284,22 @@ function companyFromEmail(email) {
   return name.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ").slice(0, 47);
 }
 
+// ---------- my tag (remembered after the first send) ----------
+// { id: "501BAC1B", ownerKey: 32 hex }: the owner key is shared with the tag and unlocks its match log
+let myTag = null;
+try { myTag = JSON.parse(localStorage.getItem("nexswap-tag") || "null"); } catch (e) {}
+function rememberTag(t) {
+  myTag = t;
+  try { localStorage.setItem("nexswap-tag", JSON.stringify(t)); } catch (e) {}
+}
+function newOwnerKey() {
+  return [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
 // ---------- account ----------
 const profileRef = () => doc(db, "profiles", user.uid);
+const cardRef = () => doc(db, "cards", user.uid);
+const shareEmail = document.getElementById("share-email");
 
 function formProfile() {
   const v = id => clean(document.getElementById(id).value);
@@ -272,7 +317,13 @@ function fillForm(p) {
 async function saveToAccount() {
   if (!user) return true;
   try {
-    await setDoc(profileRef(), { ...formProfile(), updatedAt: serverTimestamp() });
+    const profile = formProfile();
+    await setDoc(profileRef(), { ...profile, shareEmail: shareEmail.checked, ...(myTag ? { tag: myTag } : {}),
+                                 updatedAt: serverTimestamp() });
+    // What mutual matches can see (firestore.rules only lets them read it once both sides have synced)
+    await setDoc(cardRef(), { ...profile, photoURL: user.photoURL || "",
+                              ...(shareEmail.checked && user.email ? { email: user.email } : {}),
+                              updatedAt: serverTimestamp() });
     return true;
   } catch (e) {
     console.error(e);
@@ -289,9 +340,20 @@ document.getElementById("google").addEventListener("click", async () => {
 });
 document.getElementById("signout").addEventListener("click", () => signOut(auth));
 document.getElementById("delete").addEventListener("click", async () => {
-  if (!user || !confirm("Delete your saved NexSwap profile? Your tag keeps its current profile until you write a new one.")) return;
+  if (!user || !confirm("Delete your saved NexSwap profile and matches? Your tag keeps its current profile until you write a new one.")) return;
   try {
+    for (const sub of ["with", "pendingTags"]) {
+      const snap = await getDocs(collection(db, "matches", user.uid, sub));
+      for (const d of snap.docs) await deleteDoc(d.ref);
+    }
+    if (myTag) {
+      const owner = await getDoc(doc(db, "tagOwners", myTag.id));
+      if (owner.exists() && owner.data().uid === user.uid) await deleteDoc(owner.ref);
+    }
+    await deleteDoc(cardRef());
     await deleteDoc(profileRef());
+    try { localStorage.removeItem("nexswap-tag"); } catch (e) {}
+    myTag = null;
     try { localStorage.removeItem("nexswap-profile"); } catch (e) {}
     await signOut(auth);
     setStatus("Your saved profile was deleted.", "ok");
@@ -305,6 +367,8 @@ onAuthStateChanged(auth, async (u) => {
   document.getElementById("signed-out").hidden = !!u;
   document.getElementById("signed-in").hidden = !u;
   document.getElementById("delete").hidden = !u;
+  document.getElementById("matches-section").hidden = !u;
+  document.getElementById("share-email-row").hidden = !u;
   if (!u) return;
   document.getElementById("who").textContent = u.email || u.displayName || "your Google account";
   const avatar = document.getElementById("avatar");
@@ -313,7 +377,10 @@ onAuthStateChanged(auth, async (u) => {
   try {
     const snap = await getDoc(profileRef());
     if (snap.exists()) {
-      fillForm(snap.data());
+      const data = snap.data();
+      fillForm(data);
+      shareEmail.checked = !!data.shareEmail;
+      if (data.tag) rememberTag(data.tag);
       setStatus("Loaded your saved profile.", "ok");
     } else {
       if (!document.getElementById("first").value && u.displayName) {
@@ -329,6 +396,12 @@ onAuthStateChanged(auth, async (u) => {
   } catch (e) {
     setStatus(`Couldn't load your saved profile: ${e.message}`, "err");
   }
+  try {
+    await resolvePending();
+    await renderMatches();
+  } catch (e) {
+    console.error(e);
+  }
 });
 
 // Advert manufacturer data after the company ID: 'N' 'X' version, then the tag ID little-endian (see Proximity.c)
@@ -337,9 +410,9 @@ function tagAdvertPrefix(tagHex) {
   return new Uint8Array([0x4E, 0x58, 1, id & 0xFF, (id >>> 8) & 0xFF, (id >>> 16) & 0xFF, (id >>> 24) & 0xFF]);
 }
 
-async function sendToTag() {
+async function connectTag(tagId) {
   const device = await navigator.bluetooth.requestDevice({
-    filters: [{ manufacturerData: [{ companyIdentifier: 0xFFFF, dataPrefix: tagAdvertPrefix(TAG_ID) }] }],
+    filters: [{ manufacturerData: [{ companyIdentifier: 0xFFFF, dataPrefix: tagAdvertPrefix(tagId) }] }],
     optionalServices: [SETUP_SERVICE],
   });
   setStatus("Connecting to your tag…");
@@ -348,17 +421,169 @@ async function sendToTag() {
     try { server = await device.gatt.connect(); break; }
     catch (err) { if (attempt >= 3) throw err; await new Promise(r => setTimeout(r, 500)); }
   }
+  return { device, service: await server.getPrimaryService(SETUP_SERVICE) };
+}
+
+// The tag's match log, page by page: 'M', version, total (2B LE), page, n, then n x [tagId 4B LE, score, age 2B]
+async function readMatchLog(service, ownerKey) {
+  const request = await service.getCharacteristic(SYNC_REQUEST);
+  const response = await service.getCharacteristic(SYNC_MATCHES);
+  const found = [];
+  for (let page = 0; page < 10; page++) {
+    await request.writeValueWithResponse(new TextEncoder().encode(`o=${ownerKey}|p=${page}`));
+    const view = await response.readValue();
+    const v = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+    if (v[0] !== 0x4D) throw new Error("the tag didn't accept this phone's key");
+    const total = v[2] | (v[3] << 8), n = v[5];
+    for (let i = 0; i < n; i++) {
+      const o = 6 + i * 7;
+      found.push({ tagId: hex((v[o] | (v[o + 1] << 8) | (v[o + 2] << 16) | (v[o + 3] << 24)) >>> 0, 8), score: v[o + 4] });
+    }
+    if (n === 0 || found.length >= total) break;
+  }
+  return found;
+}
+
+// Send the profile (with this phone's owner key), then read the match log in the same connection
+async function sendToTag() {
+  const ownerKey = myTag && myTag.id === TAG_ID ? myTag.ownerKey : newOwnerKey();
+  const { device, service } = await connectTag(TAG_ID);
   try {
-    const service = await server.getPrimaryService(SETUP_SERVICE);
     const profileChar = await service.getCharacteristic(SETUP_PROFILE);
     const statusChar = await service.getCharacteristic(SETUP_STATUS);
     setStatus("Sending…");
-    await profileChar.writeValueWithResponse(new TextEncoder().encode(`k=${SETUP_CODE}|${payload()}`));
-    return new TextDecoder().decode(await statusChar.readValue());
+    await profileChar.writeValueWithResponse(new TextEncoder().encode(`k=${SETUP_CODE}|o=${ownerKey}|${payload()}`));
+    const result = new TextDecoder().decode(await statusChar.readValue());
+    let matches = [];
+    if (result === "ok" && user) {
+      try { matches = await readMatchLog(service, ownerKey); } catch (e) { console.error(e); }
+    }
+    return { result, ownerKey, matches };
   } finally {
     device.gatt.disconnect();
   }
 }
+
+// ---------- matches ----------
+// Turn tag IDs into people via tagOwners. Tags whose owner hasn't set up yet wait in pendingTags.
+async function saveMatches(list) {
+  for (const m of list) {
+    const owner = await getDoc(doc(db, "tagOwners", m.tagId));
+    const theirUid = owner.exists() ? owner.data().uid : null;
+    if (theirUid === user.uid) continue;
+    if (theirUid) {
+      await setDoc(doc(db, "matches", user.uid, "with", theirUid), { tagId: m.tagId, score: m.score, savedAt: serverTimestamp() });
+    } else {
+      await setDoc(doc(db, "matches", user.uid, "pendingTags", m.tagId), { score: m.score, savedAt: serverTimestamp() });
+    }
+  }
+}
+
+async function resolvePending() {
+  const snap = await getDocs(collection(db, "matches", user.uid, "pendingTags"));
+  for (const d of snap.docs) {
+    const owner = await getDoc(doc(db, "tagOwners", d.id));
+    if (!owner.exists() || owner.data().uid === user.uid) continue;
+    await setDoc(doc(db, "matches", user.uid, "with", owner.data().uid), { tagId: d.id, score: d.data().score, savedAt: serverTimestamp() });
+    await deleteDoc(d.ref);
+  }
+}
+
+// Same idea as the tag's match reason: what they bring that I want (or want that I bring), then shared interests
+function matchReason(card) {
+  const me = formProfile();
+  const parts = [];
+  for (let i = 0; i < 8; i++) {
+    const bit = 1 << i;
+    if (me.seek & card.offer & bit) parts.push(OFFER[i]);
+    else if (me.offer & card.seek & bit) parts.push(SEEK[i]);
+  }
+  const shared = INTERESTS.filter((_, i) => (me.interests & card.interests) & (1 << i)).slice(0, 3);
+  return [parts.slice(0, 2).join(", "), shared.join(", ")].filter(Boolean).join(" · ");
+}
+
+function el(tag, className, text) {
+  const e = document.createElement(tag);
+  if (className) e.className = className;
+  if (text) e.textContent = text;
+  return e;
+}
+
+async function renderMatches() {
+  const list = document.getElementById("match-list");
+  const hint = document.getElementById("matches-hint");
+  const snap = await getDocs(collection(db, "matches", user.uid, "with"));
+  const pending = await getDocs(collection(db, "matches", user.uid, "pendingTags"));
+  const rows = snap.docs.map(d => ({ uid: d.id, ...d.data() }))
+    .sort((a, b) => (b.savedAt?.toMillis?.() || 0) - (a.savedAt?.toMillis?.() || 0));
+  list.replaceChildren();
+
+  let waiting = 0;
+  for (const row of rows) {
+    let card = null;
+    try {
+      const c = await getDoc(doc(db, "cards", row.uid));   // refused until they have synced this match too
+      if (c.exists()) card = c.data();
+    } catch (e) {}
+    const li = el("li", card ? "match" : "match waiting");
+    if (!card) {
+      waiting++;
+      li.append(el("p", "name", "Waiting for them to sync their tag"),
+                el("p", "sub", "Their details appear here once they sync their matches too."));
+      list.append(li);
+      continue;
+    }
+    li.append(el("p", "name", card.first));
+    const sub = [card.company, card.title].filter(Boolean).join(" · ");
+    if (sub) li.append(el("p", "sub", sub));
+    const why = matchReason(card);
+    if (why) li.append(el("p", "why", why));
+    const actions = el("div", "actions");
+    if (/^https:\/\//i.test(card.linkedin || "")) {
+      const a = el("a", "", "LinkedIn");
+      a.href = card.linkedin; a.target = "_blank"; a.rel = "noopener";
+      actions.append(a);
+    }
+    if (card.email) {
+      const a = el("a", "", "Email");
+      a.href = `mailto:${card.email}`;
+      actions.append(a);
+    }
+    if (actions.children.length) li.append(actions);
+    list.append(li);
+  }
+
+  const notes = [];
+  if (!rows.length && !pending.size) notes.push(myTag ? "No matches yet. Sync after an event to see who you met."
+                                                      : "Send your profile to your tag first, then sync after an event.");
+  if (waiting) notes.push(`${waiting} waiting for the other person to sync.`);
+  if (pending.size) notes.push(`${pending.size} matched with someone who hasn't set up their profile yet.`);
+  hint.textContent = notes.join(" ");
+}
+
+document.getElementById("sync").addEventListener("click", async () => {
+  if (!user) return;
+  if (!myTag) { setStatus("Send your profile to your tag first: scan the QR code on its screen.", "err"); return; }
+  if (!navigator.bluetooth) { setStatus("Syncing needs Chrome on Android with Bluetooth on.", "err"); return; }
+  const sync = document.getElementById("sync");
+  sync.disabled = true;
+  let conn = null;
+  try {
+    setStatus("Choose your tag in the Bluetooth list…");
+    conn = await connectTag(myTag.id);
+    setStatus("Reading your matches…");
+    const found = await readMatchLog(conn.service, myTag.ownerKey);
+    await saveMatches(found);
+    await renderMatches();
+    setStatus(found.length ? `Synced ${found.length} match${found.length === 1 ? "" : "es"} from your tag.` : "Your tag has no matches yet.", "ok");
+  } catch (err) {
+    setStatus(err.name === "NotFoundError" ? "No tag chosen. Make sure your tag is on and nearby."
+              : `Couldn't sync (${err.message}).`, "err");
+  } finally {
+    if (conn) conn.device.gatt.disconnect();
+    sync.disabled = false;
+  }
+});
 
 const SEND_ERRORS = {
   "closed": "The tag isn't in setup mode any more. On the tag: Menu → Settings → Update profile, then scan the new code.",
@@ -378,10 +603,23 @@ button.addEventListener("click", async () => {
       return;
     }
     setStatus("Choose your tag in the Bluetooth list…");
-    const result = await sendToTag();
+    const { result, ownerKey, matches } = await sendToTag();
     if (result === "ok") {
-      setStatus(saved ? "Done! Your tag should say “Profile saved”."
-                      : "Sent to your tag, but saving to your account failed. Try again later.", saved ? "ok" : "err");
+      rememberTag({ id: TAG_ID, ownerKey });
+      let accountOk = saved;
+      if (user) {
+        try {
+          await setDoc(doc(db, "tagOwners", TAG_ID), { uid: user.uid, updatedAt: serverTimestamp() });
+          accountOk = (await saveToAccount()) && accountOk;   // now includes the tag
+          await saveMatches(matches);
+          await renderMatches();
+        } catch (e) {
+          console.error(e);
+          accountOk = false;
+        }
+      }
+      setStatus(accountOk ? "Done! Your tag should say “Profile saved”."
+                          : "Sent to your tag, but saving to your account failed. Try again later.", accountOk ? "ok" : "err");
     } else {
       setStatus(SEND_ERRORS[result] || `The tag replied “${result}”. Try again.`, "err");
     }
