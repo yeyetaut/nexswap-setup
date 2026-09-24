@@ -58,7 +58,8 @@
   }
   .btn-google svg { width: 20px; height: 20px; flex: none; }
   .signed-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .signed-in p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+  .signed-in p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; flex: 1; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; flex: none; object-fit: cover; background: var(--border); }
   .btn-link { width: auto; padding: 8px 4px; background: none; color: var(--dim); font-size: 14px; font-weight: 500; text-decoration: underline; }
   .btn-danger { background: none; border: 1px solid #ff6b6b66; color: var(--err); font-size: 15px; padding: 12px; margin-top: 12px; }
   details.privacy { margin-top: 28px; color: var(--dim); font-size: 14px; }
@@ -84,6 +85,7 @@
       <p class="hint">Save your profile once and reuse it at every event, on any phone. Or skip this: the form is still remembered on this phone.</p>
     </div>
     <div id="signed-in" class="signed-in" hidden>
+      <img id="avatar" class="avatar" alt="" referrerpolicy="no-referrer" hidden>
       <p>Signed in as <strong id="who"></strong></p>
       <button id="signout" class="btn-link" type="button">Sign out</button>
     </div>
@@ -216,6 +218,26 @@ if (!("NDEFReader" in window)) {
   button.disabled = true;
 }
 
+// ---------- company guess from a work email ----------
+// alex@stripe.com -> "Stripe", jo@nus.edu.sg -> "NUS"; personal mail providers give nothing
+const PERSONAL_MAIL = /^(gmail|googlemail|outlook|hotmail|live|msn|yahoo|ymail|icloud|me|mac|aol|proton|protonmail|pm|gmx|mail|yandex|zoho|qq|163|126|singnet|starhub|pacific|fastmail|hey|tutanota)\./;
+const SECOND_LEVEL = new Set(["co", "com", "edu", "gov", "org", "net", "ac"]);
+
+function companyFromEmail(email) {
+  const domain = (email || "").split("@")[1]?.toLowerCase();
+  if (!domain) return "";
+  const labels = domain.split(".");
+  if (labels.length < 2) return "";
+  // skip country second-level suffixes like .com.sg / .co.uk / .edu.sg
+  let i = labels.length - 2;
+  if (labels.length >= 3 && SECOND_LEVEL.has(labels[i]) && labels[labels.length - 1].length === 2) i--;
+  const name = labels[i];
+  // check the registrable domain (nexswap.co), not subdomains like mail.nexswap.co
+  if (!name || PERSONAL_MAIL.test(labels.slice(i).join(".") )) return "";
+  if (name.length <= 3) return name.toUpperCase();
+  return name.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ").slice(0, 47);
+}
+
 // ---------- account ----------
 const profileRef = () => doc(db, "profiles", user.uid);
 
@@ -270,6 +292,9 @@ onAuthStateChanged(auth, async (u) => {
   document.getElementById("delete").hidden = !u;
   if (!u) return;
   document.getElementById("who").textContent = u.email || u.displayName || "your Google account";
+  const avatar = document.getElementById("avatar");
+  avatar.hidden = !u.photoURL;
+  if (u.photoURL) avatar.src = u.photoURL;
   try {
     const snap = await getDoc(profileRef());
     if (snap.exists()) {
@@ -279,7 +304,12 @@ onAuthStateChanged(auth, async (u) => {
       if (!document.getElementById("first").value && u.displayName) {
         document.getElementById("first").value = u.displayName.split(" ")[0].slice(0, 12);
       }
-      setStatus("Signed in. Fill in your profile, then write it to your tag.");
+      const company = document.getElementById("company");
+      const guess = companyFromEmail(u.email);
+      if (!company.value && guess) company.value = guess;
+      saveForm();
+      setStatus(guess ? `Signed in. We guessed your company from your email (${guess}); edit it if it's wrong.`
+                      : "Signed in. Fill in your profile, then write it to your tag.");
     }
   } catch (e) {
     setStatus(`Couldn't load your saved profile: ${e.message}`, "err");
