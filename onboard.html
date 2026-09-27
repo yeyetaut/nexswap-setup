@@ -605,15 +605,18 @@ onAuthStateChanged(auth, async (u) => {
   }
 });
 
-// Advert manufacturer data after the company ID: 'N' 'X' version, then the tag ID little-endian (see Proximity.c)
-function tagAdvertPrefix(tagHex) {
+// Advert manufacturer data after the company ID: 'N' 'X' version, then the tag ID little-endian (see Proximity.c).
+// Both advert types (MATCH and HELLO) start with this. Version 1 = tags on older firmware: still found.
+const TAG_ADVERT_VERSIONS = [2, 1];
+function tagAdvertFilters(tagHex) {
   const id = parseInt(tagHex, 16) >>> 0;
-  return new Uint8Array([0x4E, 0x58, 1, id & 0xFF, (id >>> 8) & 0xFF, (id >>> 16) & 0xFF, (id >>> 24) & 0xFF]);
+  return TAG_ADVERT_VERSIONS.map(v => ({ manufacturerData: [{ companyIdentifier: 0xFFFF,
+    dataPrefix: new Uint8Array([0x4E, 0x58, v, id & 0xFF, (id >>> 8) & 0xFF, (id >>> 16) & 0xFF, (id >>> 24) & 0xFF]) }] }));
 }
 
 async function connectTag(tagId) {
   const device = await navigator.bluetooth.requestDevice({
-    filters: [{ manufacturerData: [{ companyIdentifier: 0xFFFF, dataPrefix: tagAdvertPrefix(tagId) }] }],
+    filters: tagAdvertFilters(tagId),
     optionalServices: [SETUP_SERVICE],
   });
   setStatus("Connecting to your tag…");
@@ -856,7 +859,7 @@ button.addEventListener("click", async () => {
         }
       }
       mode = "summary";
-      setStatus(accountOk ? "Done! Your tag should say “Profile saved”."
+      setStatus(accountOk ? "Done! Your tag should say “Profile saved”. At the event: when your tag buzzes, look around for a badge showing your name."
                           : "Sent to your tag, but saving to your account failed. Try again later.", accountOk ? "ok" : "err");
     } else {
       setStatus(SEND_ERRORS[result] || `The tag replied “${result}”. Try again.`, "err");
