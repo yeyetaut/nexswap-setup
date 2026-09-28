@@ -302,6 +302,8 @@
         </div>
         <h1>Look for your name</h1>
         <p>Look around for a glowing badge that says <strong>Looking for <span data-me-name></span></strong>: that's your match. Your tag shows their name, in the same colour and style.</p>
+        <button id="match-try" class="btn btn-ghost buzz-try" type="button" hidden>Show a sample match on my tag</button>
+        <p id="match-note" class="buzz-note" aria-live="polite"></p>
         <p>Lift your tag to see who and why. It goes back to your name after a minute, or tap it to close it sooner.</p>
       </div>
 
@@ -519,7 +521,7 @@ const ONBOARDED = "nexswap-onboarded";   // set once How it works has been seen 
 let busy = false;
 let tagLink = null;          // { device, ownerKey }: the tag this page last sent to (reconnects without the chooser)
 let buzzIdle = 0;
-const buzzButton = document.getElementById("buzz-try"), buzzNote = document.getElementById("buzz-note");
+const buzzButton = document.getElementById("buzz-try"), matchButton = document.getElementById("match-try");
 
 const hasProfile = () => !!document.getElementById("first").value.trim();
 const primaryLabel = () => canSend ? "Send to my tag" : "Save my profile";
@@ -592,8 +594,8 @@ function renderHowto() {
   document.querySelectorAll("#howto .dots i").forEach((d, i) => d.classList.toggle("on", i === howtoStep - 1));
   document.getElementById("howto-signin").hidden = !!user;
   if (howtoStep === 3) startSign(); else stopSign();
-  buzzButton.hidden = !navigator.bluetooth || !(tagLink || myTag);
-  if (howtoStep !== 2) buzzDisconnect();
+  buzzButton.hidden = matchButton.hidden = !navigator.bluetooth || !(tagLink || myTag);
+  if (howtoStep !== 2 && howtoStep !== 3) buzzDisconnect();
 }
 
 // Card 3: the other person's tag goes through the four looks: waiting for the answer, then your name fades in
@@ -698,7 +700,7 @@ function rememberTag(t) {
   myTag = t;
   try { localStorage.setItem("nexswap-tag", JSON.stringify(t)); } catch (e) {}
 }
-// ---------- "Tap to feel the buzz" (How it works, card 2): the tag itself plays its match buzz ----------
+// ---------- Walkthrough cards 2 and 3: the tag itself plays the match buzz / a sample match sign ----------
 // Needs the owner key, like the match log. While the phone is connected the tag stops advertising (no matching),
 // so the connection is dropped a few seconds after the last tap.
 function buzzDisconnect() {
@@ -706,10 +708,11 @@ function buzzDisconnect() {
   if (tagLink && tagLink.device.gatt.connected) tagLink.device.gatt.disconnect();
 }
 
-buzzButton.addEventListener("click", async () => {
-  buzzButton.disabled = true;
-  buzzButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Buzzing…`;
-  buzzNote.textContent = "";
+// Write "o=<owner key>" + suffix to the tag; the button shows progress and the note what to expect
+async function tagCommand(btn, note, suffix, labels) {
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner" aria-hidden="true"></span>${labels.busy}`;
+  note.textContent = "";
   let ok = false;
   try {
     if (!tagLink) {                                // opened How it works later: pick the tag once
@@ -722,27 +725,39 @@ buzzButton.addEventListener("click", async () => {
       catch (err) { if (attempt >= 3) throw err; await new Promise(r => setTimeout(r, 500)); }
     }
     const service = await device.gatt.getPrimaryService(SETUP_SERVICE);
-    let buzz;
-    try { buzz = await service.getCharacteristic(SETUP_BUZZ); }
-    catch (e) { buzzNote.textContent = "Your tag needs a firmware update for this."; return; }
-    await buzz.writeValueWithResponse(new TextEncoder().encode(`o=${tagLink.ownerKey}`));
+    let char;
+    try { char = await service.getCharacteristic(SETUP_BUZZ); }
+    catch (e) { note.textContent = "Your tag needs a firmware update for this."; return false; }
+    await char.writeValueWithResponse(new TextEncoder().encode(`o=${tagLink.ownerKey}${suffix}`));
     ok = true;
-    // Restart the mock's shake so it moves with the real buzz
-    const step = buzzButton.closest(".howto-step");
-    for (const el of [step.querySelector(".tagmock"), step.querySelector(".buzz-label")]) {
-      el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";
-    }
-    buzzNote.textContent = "Didn't feel it? Check Settings → Vibration on the tag.";
+    note.textContent = labels.done;
     clearTimeout(buzzIdle);
     buzzIdle = setTimeout(buzzDisconnect, 5000);
   } catch (err) {
-    if (err.name !== "NotFoundError") buzzNote.textContent = "Couldn't reach your tag. Move closer and try again.";
+    if (err.name !== "NotFoundError") note.textContent = "Couldn't reach your tag. Move closer and try again.";
     buzzDisconnect();
   } finally {
-    buzzButton.disabled = false;
-    buzzButton.textContent = ok ? "Tap to feel it again" : "Tap to feel the buzz";
+    btn.disabled = false;
+    btn.textContent = ok ? labels.again : labels.idle;
+  }
+  return ok;
+}
+
+buzzButton.addEventListener("click", async () => {
+  const ok = await tagCommand(buzzButton, document.getElementById("buzz-note"), "", {
+    idle: "Tap to feel the buzz", busy: "Buzzing…", again: "Tap to feel it again",
+    done: "Didn't feel it? Check Settings → Vibration on the tag." });
+  if (!ok) return;
+  // Restart the mock's shake so it moves with the real buzz
+  const step = buzzButton.closest(".howto-step");
+  for (const el of [step.querySelector(".tagmock"), step.querySelector(".buzz-label")]) {
+    el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";
   }
 });
+
+matchButton.addEventListener("click", () => tagCommand(matchButton, document.getElementById("match-note"), "|m", {
+  idle: "Show a sample match on my tag", busy: "Sending…", again: "Show another look",
+  done: "Watch your tag: it waits for the other badge, then shows “Alex Tan” and buzzes. Each try shows a different look." }));
 
 function newOwnerKey() {
   return [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
