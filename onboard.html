@@ -186,6 +186,8 @@
   .lanyard::after { left: calc(50% + 67px); transform: rotate(-24deg); }
   /* Buzz: two short shakes, then a pause */
   .buzz-label { color: var(--accent-hi); font-weight: 700; letter-spacing: .08em; margin-top: 10px; height: 20px; }
+  .buzz-try { width: 100%; margin-top: 6px; }
+  .howto-step .buzz-note { font-size: 14px; min-height: 20px; margin: 8px 0 0; }
   /* The four match looks: a breathing glow layer behind the text */
   .tagmock .glow { position: absolute; inset: 0; pointer-events: none; }
   .tagmock.look-0 .glow { box-shadow: inset 0 0 22px 8px var(--glow); }
@@ -289,6 +291,8 @@
         </div>
         <h1>Two buzzes means a match</h1>
         <p>When someone who matches you has been close for a few seconds, your tag <strong>buzzes twice</strong>. So does theirs.</p>
+        <button id="buzz-try" class="btn btn-ghost buzz-try" type="button" hidden>Tap to feel the buzz</button>
+        <p id="buzz-note" class="buzz-note" aria-live="polite"></p>
       </div>
 
       <div class="howto-step" data-howto="3" hidden>
@@ -423,6 +427,7 @@ const SETUP_PROFILE = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570002";
 const SETUP_STATUS  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570003";
 const SYNC_REQUEST  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570004";
 const SYNC_MATCHES  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570005";
+const SETUP_BUZZ    = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570006";
 
 // The QR code on the tag opens this page with ?tag=<8-hex tag ID>&k=<6-hex one-time code>
 const params = new URLSearchParams(location.search);
@@ -512,6 +517,9 @@ let step = 1;
 let howtoStep = 1;          // 1-4, the How it works cards
 const ONBOARDED = "nexswap-onboarded";   // set once How it works has been seen after a first send
 let busy = false;
+let tagLink = null;          // { device, ownerKey }: the tag this page last sent to (reconnects without the chooser)
+let buzzIdle = 0;
+const buzzButton = document.getElementById("buzz-try"), buzzNote = document.getElementById("buzz-note");
 
 const hasProfile = () => !!document.getElementById("first").value.trim();
 const primaryLabel = () => canSend ? "Send to my tag" : "Save my profile";
@@ -584,6 +592,8 @@ function renderHowto() {
   document.querySelectorAll("#howto .dots i").forEach((d, i) => d.classList.toggle("on", i === howtoStep - 1));
   document.getElementById("howto-signin").hidden = !!user;
   if (howtoStep === 3) startSign(); else stopSign();
+  buzzButton.hidden = !navigator.bluetooth || !(tagLink || myTag);
+  if (howtoStep !== 2) buzzDisconnect();
 }
 
 // Card 3: the other person's tag goes through the four looks: waiting for the answer, then your name fades in
@@ -618,6 +628,7 @@ function openHowto() {
 
 function finishHowto() {
   try { localStorage.setItem(ONBOARDED, "1"); } catch (e) {}
+  buzzDisconnect();
   mode = hasProfile() ? "summary" : "wizard";
   step = 1;
   setStatus("");
@@ -687,6 +698,52 @@ function rememberTag(t) {
   myTag = t;
   try { localStorage.setItem("nexswap-tag", JSON.stringify(t)); } catch (e) {}
 }
+// ---------- "Tap to feel the buzz" (How it works, card 2): the tag itself plays its match buzz ----------
+// Needs the owner key, like the match log. While the phone is connected the tag stops advertising (no matching),
+// so the connection is dropped a few seconds after the last tap.
+function buzzDisconnect() {
+  clearTimeout(buzzIdle);
+  if (tagLink && tagLink.device.gatt.connected) tagLink.device.gatt.disconnect();
+}
+
+buzzButton.addEventListener("click", async () => {
+  buzzButton.disabled = true;
+  buzzButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Buzzing…`;
+  buzzNote.textContent = "";
+  let ok = false;
+  try {
+    if (!tagLink) {                                // opened How it works later: pick the tag once
+      const { device } = await connectTag(myTag.id);
+      tagLink = { device, ownerKey: myTag.ownerKey };
+    }
+    const { device } = tagLink;
+    for (let attempt = 1; !device.gatt.connected; attempt++) {
+      try { await device.gatt.connect(); }
+      catch (err) { if (attempt >= 3) throw err; await new Promise(r => setTimeout(r, 500)); }
+    }
+    const service = await device.gatt.getPrimaryService(SETUP_SERVICE);
+    let buzz;
+    try { buzz = await service.getCharacteristic(SETUP_BUZZ); }
+    catch (e) { buzzNote.textContent = "Your tag needs a firmware update for this."; return; }
+    await buzz.writeValueWithResponse(new TextEncoder().encode(`o=${tagLink.ownerKey}`));
+    ok = true;
+    // Restart the mock's shake so it moves with the real buzz
+    const step = buzzButton.closest(".howto-step");
+    for (const el of [step.querySelector(".tagmock"), step.querySelector(".buzz-label")]) {
+      el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";
+    }
+    buzzNote.textContent = "Didn't feel it? Check Settings → Vibration on the tag.";
+    clearTimeout(buzzIdle);
+    buzzIdle = setTimeout(buzzDisconnect, 5000);
+  } catch (err) {
+    if (err.name !== "NotFoundError") buzzNote.textContent = "Couldn't reach your tag. Move closer and try again.";
+    buzzDisconnect();
+  } finally {
+    buzzButton.disabled = false;
+    buzzButton.textContent = ok ? "Tap to feel it again" : "Tap to feel the buzz";
+  }
+});
+
 function newOwnerKey() {
   return [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
 }
@@ -804,8 +861,8 @@ onAuthStateChanged(auth, async (u) => {
 });
 
 // Advert manufacturer data after the company ID: 'N' 'X' version, then the tag ID little-endian (see Proximity.c).
-// Both advert types (MATCH and HELLO) start with this. Version 1 = tags on older firmware: still found.
-const TAG_ADVERT_VERSIONS = [2, 1];
+// Both advert types (MATCH and HELLO) start with this. Versions 2 and 1 = tags on older firmware: still found.
+const TAG_ADVERT_VERSIONS = [3, 2, 1];
 function tagAdvertFilters(tagHex) {
   const id = parseInt(tagHex, 16) >>> 0;
   return TAG_ADVERT_VERSIONS.map(v => ({ manufacturerData: [{ companyIdentifier: 0xFFFF,
@@ -856,6 +913,7 @@ async function sendToTag() {
     setStatus("Sending…");
     await profileChar.writeValueWithResponse(new TextEncoder().encode(`k=${SETUP_CODE}|o=${ownerKey}|${payload()}`));
     const result = new TextDecoder().decode(await statusChar.readValue());
+    if (result === "ok") tagLink = { device, ownerKey };   // for "Tap to feel the buzz", without the chooser again
     let matches = [];
     if (result === "ok" && user) {
       try { matches = await readMatchLog(service, ownerKey); } catch (e) { console.error(e); }
