@@ -264,6 +264,7 @@
       <ul class="pills" id="sum-pills"></ul>
       <button id="edit" class="btn btn-ghost" type="button">Edit profile</button>
       <button id="howto-open" class="btn btn-ghost" type="button">How it works</button>
+      <button id="update-tag" class="btn btn-ghost" type="button" hidden>Update my tag</button>
     </div>
 
     <!-- How it works: four cards, shown once after the first send to a tag, and from "How it works" -->
@@ -430,6 +431,9 @@ const SETUP_STATUS  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570003";
 const SYNC_REQUEST  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570004";
 const SYNC_MATCHES  = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570005";
 const SETUP_BUZZ    = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570006";
+const OTA_VERSION   = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570007";
+const OTA_CONTROL   = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570008";
+const OTA_DATA      = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570009";
 
 // The QR code on the tag opens this page with ?tag=<8-hex tag ID>&k=<6-hex one-time code>
 const params = new URLSearchParams(location.search);
@@ -555,6 +559,7 @@ function render() {
   if (!onProfile) return;
 
   document.getElementById("summary").hidden = mode !== "summary";
+  document.getElementById("update-tag").hidden = !navigator.bluetooth || !myTag;
   form.hidden = mode !== "wizard";
   document.getElementById("howto").hidden = !howto;
   // Setup banners and privacy notes are about sending a profile, not about the walkthrough
@@ -758,6 +763,78 @@ buzzButton.addEventListener("click", async () => {
 matchButton.addEventListener("click", () => tagCommand(matchButton, document.getElementById("match-note"), "|m", {
   idle: "Show a sample match on my tag", busy: "Sending…", again: "Show another look",
   done: "Watch your tag: it waits for the other badge, then shows “Alex Tan” and buzzes. Each try shows a different look." }));
+
+// ---------- "Update my tag": new firmware over Bluetooth (include/Ota.c in the tag firmware) ----------
+// firmware/manifest.json (next to this page, written by release_firmware.sh) says which build is current. The tag
+// downloads it into its spare slot and only switches once it has all of it and NexSwap's signature checks out.
+const OTA_CHUNK = 240;       // + 4-byte offset: fits one packet (phones use 247+ byte packets), so no reply is needed
+const OTA_SYNC = 32;         // read the tag's status every this many pieces: catches errors, keeps the queue short
+const updateButton = document.getElementById("update-tag");
+
+updateButton.addEventListener("click", async () => {
+  if (!myTag) return;
+  const enc = t => new TextEncoder().encode(t);
+  updateButton.disabled = true;
+  let conn = null, wakeLock = null, started = false;
+  try {
+    setStatus("Checking for a new version…");
+    const manifest = await (await fetch("firmware/manifest.json", { cache: "no-store" })).json();
+    setStatus("Choose your tag in the Bluetooth list…");
+    conn = await connectTag(myTag.id);
+    let versionChar;
+    try { versionChar = await conn.service.getCharacteristic(OTA_VERSION); }
+    catch (e) { setStatus("This tag needs one update over USB before it can update over Bluetooth.", "err"); return; }
+    const [build, ...name] = new TextDecoder().decode(await versionChar.readValue()).split(" ");
+    if (Number(build) >= manifest.build) { setStatus(`Your tag is up to date (${name.join(" ")}).`, "ok"); return; }
+    if (!confirm(`Update your tag to version ${manifest.version}? Keep your phone next to it until it's done (about 2 minutes).`)) {
+      setStatus("");
+      return;
+    }
+    setStatus("Downloading the update…");
+    const bin = new Uint8Array(await (await fetch("firmware/" + manifest.file, { cache: "no-store" })).arrayBuffer());
+    if (bin.length !== manifest.size) throw new Error("the download was incomplete");
+    const control = await conn.service.getCharacteristic(OTA_CONTROL);
+    const data = await conn.service.getCharacteristic(OTA_DATA);
+    const tagStatus = async () => new TextDecoder().decode(await control.readValue());
+    await control.writeValueWithResponse(enc(`begin|${bin.length}|${manifest.build}|${manifest.signature}`));
+    const ready = await tagStatus();
+    if (ready !== "ready") throw new Error(ready === "older" ? "your tag already has a newer version" : ready);
+    started = true;
+    try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {}   // a sleeping phone drops the link
+    let shown = -1;
+    for (let offset = 0, n = 1; offset < bin.length; offset += OTA_CHUNK, n++) {
+      const piece = bin.subarray(offset, offset + OTA_CHUNK), msg = new Uint8Array(4 + piece.length);
+      new DataView(msg.buffer).setUint32(0, offset, true);
+      msg.set(piece, 4);
+      await data.writeValueWithoutResponse(msg);
+      if (n % OTA_SYNC === 0) {
+        const s = await tagStatus();
+        if (s !== "ready") throw new Error(s);
+      }
+      const pct = Math.floor(100 * (offset + piece.length) / bin.length);
+      if (pct !== shown) { setStatus(`Updating your tag… ${pct}%. Keep your phone next to it.`); shown = pct; }
+    }
+    await control.writeValueWithResponse(enc("end"));
+    let done = "checking";
+    for (let i = 0; i < 40 && done === "checking"; i++) {   // the tag checks the signature (about a second)
+      await new Promise(r => setTimeout(r, 250));
+      done = await tagStatus();
+    }
+    if (done !== "ok") throw new Error(done === "bad-signature" ? "the update arrived damaged or isn't from NexSwap" : done);
+    started = false;
+    setStatus(`Updated to ${manifest.version}. Your tag is restarting.`, "ok");
+  } catch (err) {
+    if (started && conn && conn.device.gatt.connected) {
+      try { await (await conn.service.getCharacteristic(OTA_CONTROL)).writeValueWithResponse(enc("abort")); } catch (e) {}
+    }
+    setStatus(err.name === "NotFoundError" ? "No tag chosen. Make sure your tag is on and nearby."
+              : `Couldn't update your tag (${err.message}). It keeps its current version; try again.`, "err");
+  } finally {
+    if (wakeLock) wakeLock.release().catch(() => {});
+    if (conn) conn.device.gatt.disconnect();
+    updateButton.disabled = false;
+  }
+});
 
 function newOwnerKey() {
   return [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
