@@ -1407,7 +1407,7 @@ document.addEventListener("touchcancel", () => { if (drag?.el) resetPanel(drag.e
 
 // First paint: returning visitors (profile remembered on this phone) get the one-tap summary
 updateInterestCount();
-if (hasProfile()) mode = "summary";
+if (hasProfile() && !wifiSent) mode = "summary";   // just back from the tag's Wi-Fi: keep "How it works" / done
 if (DEMO) { activeTab = "matches"; renderMatches(); }
 if (params.get("howto") === "1") { activeTab = "profile"; mode = "howto"; }   // open How it works directly
 render();
