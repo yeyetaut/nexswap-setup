@@ -354,9 +354,9 @@
         <label class="field"><span>LinkedIn profile link</span>
           <input type="url" id="linkedin" maxlength="99" inputmode="url" autocomplete="url" enterkeyhint="done"
                  placeholder="https://www.linkedin.com/in/…">
-          <p class="hint">People who tap your tag, and your matches, get this link.</p></label>
-        <label class="toggle" id="share-email-row" hidden>
-          <input type="checkbox" id="share-email"> Share my email with my matches</label>
+          <p class="hint">People who tap your tag get this link, and so do your matches unless you turn that off below.</p></label>
+        <label class="toggle" id="share-contact-row" hidden>
+          <input type="checkbox" id="share-contact" checked> Share my email and LinkedIn with my matches</label>
       </fieldset>
 
       <fieldset class="step fade" data-step="2" hidden>
@@ -379,10 +379,12 @@
       <p>Your profile (first name, company, title, LinkedIn URL, interests and goals) is written to your NexSwap tag,
          which shares your first name, interests and goals with other tags nearby so you can be matched.</p>
       <p>If you continue with Google, the same profile is saved to your NexSwap account (Google Firebase, Singapore region)
-         so you can reuse it at future events. We use your Google sign-in only to identify your account; we don't store
-         your email unless you choose to share it with your matches. You can delete your saved profile and matches at any time below.</p>
+         so you can reuse it at future events. We use your Google sign-in to identify your account, and save your Google
+         email only for your matches to see, unless you untick “Share my email and LinkedIn with my matches”. You can
+         delete your saved profile and matches at any time below.</p>
       <p>Your tag remembers who you matched with. When you sync, those matches are saved to your account, and your
-         matches can see your name, company, title, LinkedIn, interests and goals, but only once you have both synced,
+         matches can see your name, company, title, interests and goals (and your email and LinkedIn, unless you turned
+         that off), but only once you have both synced,
          so nobody can look you up without having actually met you. This page also remembers which tag is yours and a
          secret key that lets only your phone read your tag's matches.</p>
       <p>Without signing in, your profile is only kept in this browser on this phone and matches can't be saved.</p>
@@ -396,9 +398,21 @@
     </div>
     <h1>Your matches</h1>
     <p class="lead" id="matches-hint">People your tag matched with at events appear here after you sync.</p>
+    <!-- Browsers without Web Bluetooth (iPhones): the match log comes back over the tag's own Wi-Fi -->
+    <div id="wifi-sync" class="card" hidden>
+      <h2>Sync over your tag's Wi-Fi</h2>
+      <ol class="wifi-steps">
+        <li>On your tag, tap the menu button (top left), then <strong>Settings → Sync to phone</strong>.</li>
+        <li>Scan the Wi-Fi code on the tag with your camera and tap <strong>Join</strong>.</li>
+        <li>Come back here and tap <strong>Get my matches</strong>.</li>
+      </ol>
+      <a id="wifi-sync-go" class="btn btn-primary" href="#">Get my matches</a>
+      <p class="hint" style="margin:12px 0 0">Your phone then goes back to its usual connection and your matches appear here.</p>
+    </div>
     <ul id="match-list" class="match-list"></ul>
     <div id="matches-signin" class="empty" hidden><strong>Sign in to see your matches</strong>
-      Matches are saved to your account so you can follow up after the event.</div>
+      Matches are saved to your account so you can follow up after the event.
+      <button id="google-matches" class="btn btn-google" type="button" style="margin-top:16px">Continue with Google</button></div>
   </section>
 </main>
 
@@ -525,6 +539,7 @@ const canSend = !!(TAG_ID && SETUP_CODE && navigator.bluetooth);
 // No Web Bluetooth (iPhones): the tag's own Wi-Fi instead (include/WifiSetup.c in the tag firmware)
 const canWifi = !!(TAG_ID && SETUP_CODE && !navigator.bluetooth);
 const WIFI_PENDING = "nexswap-wifi-pending";   // { id, ownerKey } while the phone is off to the tag's Wi-Fi
+const WIFI_SYNC = "nexswap-wifi-sync";         // { id, nonce } while it's off there to fetch the match log
 if (TAG_ID && SETUP_CODE) {
   document.getElementById("tag-id").textContent = TAG_ID;
   document.getElementById("tag-banner").hidden = false;
@@ -544,6 +559,7 @@ let howtoStep = 1;          // 1-4, the How it works cards
 const ONBOARDED = "nexswap-onboarded";   // set once How it works has been seen after a first send
 let busy = false;
 let tagLink = null;          // { device, ownerKey }: the tag this page last sent to (reconnects without the chooser)
+let wifiSyncOpen = false;    // Matches tab: the "Sync over your tag's Wi-Fi" steps are showing
 let buzzIdle = 0;
 const buzzButton = document.getElementById("buzz-try"), matchButton = document.getElementById("match-try");
 
@@ -572,10 +588,12 @@ function render() {
   document.getElementById("demo-banner").hidden = !DEMO;
   if (!onProfile && !user && !DEMO) { document.getElementById("match-list").replaceChildren(); }
 
-  syncButton.hidden = onProfile || !user;
-  button.hidden = !onProfile || mode === "wifi";   // on the Wi-Fi card the link is the action
+  syncButton.hidden = onProfile || !user || wifiSyncOpen;
+  button.hidden = !onProfile || mode === "wifi";   // on the Wi-Fi cards the link is the action
+  document.getElementById("wifi-sync").hidden = onProfile || !user || !wifiSyncOpen;
   const howto = mode === "howto";
-  backButton.hidden = !onProfile || mode === "summary" || (howto ? howtoStep === 1 : mode === "wizard" && step === 1);
+  backButton.hidden = !onProfile ? !user || !wifiSyncOpen
+                                 : mode === "summary" || (howto ? howtoStep === 1 : mode === "wizard" && step === 1);
   if (!onProfile) return;
 
   document.getElementById("summary").hidden = mode !== "summary";
@@ -694,6 +712,7 @@ document.getElementById("edit").addEventListener("click", () => { mode = "wizard
 document.getElementById("howto-open").addEventListener("click", openHowto);
 document.getElementById("howto-skip").addEventListener("click", finishHowto);
 backButton.addEventListener("click", () => {
+  if (activeTab === "matches") { wifiSyncOpen = false; setStatus(""); render(); return; }
   if (mode === "howto") { howtoGo(false); return; }
   if (mode === "wifi") { mode = "summary"; setStatus(""); render(); return; }
   step = Math.max(1, step - 1); render(); window.scrollTo(0, 0);
@@ -858,14 +877,17 @@ updateButton.addEventListener("click", async () => {
   }
 });
 
+function randomHex(bytes) {
+  return [...crypto.getRandomValues(new Uint8Array(bytes))].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
 function newOwnerKey() {
-  return [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+  return randomHex(16);
 }
 
 // ---------- account ----------
 const profileRef = () => doc(db, "profiles", user.uid);
 const cardRef = () => doc(db, "cards", user.uid);
-const shareEmail = document.getElementById("share-email");
+const shareContact = document.getElementById("share-contact");   // email and LinkedIn on the card (on by default)
 
 function formProfile() {
   const v = id => clean(document.getElementById(id).value);
@@ -884,11 +906,13 @@ async function saveToAccount() {
   if (!user) return true;
   try {
     const profile = formProfile();
-    await setDoc(profileRef(), { ...profile, shareEmail: shareEmail.checked, ...(myTag ? { tag: myTag } : {}),
+    // (the stored field keeps its old name, shareEmail; it now covers the LinkedIn link too)
+    await setDoc(profileRef(), { ...profile, shareEmail: shareContact.checked, ...(myTag ? { tag: myTag } : {}),
                                  updatedAt: serverTimestamp() });
-    // What mutual matches can see (firestore.rules only lets them read it once both sides have synced)
+    // What mutual matches can see (firestore.rules only lets them read it once both sides have synced). Opted out:
+    // no email and no LinkedIn link (the tag still hands the link to people who tap it)
     await setDoc(cardRef(), { ...profile, photoURL: user.photoURL || "",
-                              ...(shareEmail.checked && user.email ? { email: user.email } : {}),
+                              ...(shareContact.checked ? (user.email ? { email: user.email } : {}) : { linkedin: "" }),
                               updatedAt: serverTimestamp() });
     return true;
   } catch (e) {
@@ -897,13 +921,15 @@ async function saveToAccount() {
   }
 }
 
-document.getElementById("google").addEventListener("click", async () => {
+async function signIn() {
   try {
     await signInWithPopup(auth, new GoogleAuthProvider());
   } catch (e) {
     if (e.code !== "auth/popup-closed-by-user") setStatus(`Sign-in failed: ${e.message}`, "err");
   }
-});
+}
+document.getElementById("google").addEventListener("click", signIn);
+document.getElementById("google-matches").addEventListener("click", signIn);
 document.getElementById("signout").addEventListener("click", () => { signOut(auth); activeTab = "profile"; render(); });
 document.getElementById("delete").addEventListener("click", async () => {
   if (!user || !confirm("Delete your saved NexSwap profile and matches? Your tag keeps its current profile until you write a new one.")) return;
@@ -945,13 +971,34 @@ try {
   }
 } catch (e) {}
 
+// Back from the tag's Wi-Fi with its match log: ?tag=<id>#n=<nonce>&m=<14 hex per match: tag ID, score, age>.
+// Only with the nonce this phone sent, so a link from someone else can't add matches (and unlock cards).
+let wifiSynced = null;
+try {
+  const back = new URLSearchParams(location.hash.slice(1));
+  if (back.has("m")) {
+    const pending = JSON.parse(localStorage.getItem(WIFI_SYNC) || "null");
+    const log = back.get("m");
+    if (pending && pending.id === TAG_ID && back.get("n") === pending.nonce && /^([0-9A-F]{14})*$/.test(log)) {
+      wifiSynced = (log.match(/.{14}/g) || []).map(e => ({ tagId: e.slice(0, 8), score: parseInt(e.slice(8, 10), 16) }));
+      localStorage.removeItem(WIFI_SYNC);
+      activeTab = "matches";
+      setStatus("Saving the matches from your tag…");
+    }
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+} catch (e) {}
+
 onAuthStateChanged(auth, async (u) => {
   user = u;
   document.getElementById("signed-in").hidden = !u;
   document.getElementById("delete").hidden = !u;
-  document.getElementById("share-email-row").hidden = !u;
+  document.getElementById("share-contact-row").hidden = !u;
   render();
-  if (!u) return;
+  if (!u) {
+    if (wifiSynced) setStatus("Sign in to save the matches from your tag.");
+    return;
+  }
   document.getElementById("who").textContent = u.email || u.displayName || "your Google account";
   const avatar = document.getElementById("avatar");
   avatar.hidden = !u.photoURL;
@@ -961,7 +1008,8 @@ onAuthStateChanged(auth, async (u) => {
     if (snap.exists()) {
       const data = snap.data();
       fillForm(data);
-      shareEmail.checked = !!data.shareEmail;
+      // An account saved before sharing was on by default keeps what it had (false = never shared its email)
+      shareContact.checked = !!data.shareEmail;
       if (data.tag && !wifiSent) rememberTag(data.tag);   // just sent over Wi-Fi: that tag is the current one
       updateInterestCount();
       if (!wifiSent) {
@@ -994,6 +1042,16 @@ onAuthStateChanged(auth, async (u) => {
       setStatus("Sent to your tag, but saving to your account failed. Try again later.", "err");
     }
     wifiSent = null;
+  }
+  if (wifiSynced) {                          // the match log, back over the tag's Wi-Fi: save it like a Bluetooth sync
+    try {
+      await saveMatches(wifiSynced);
+      setStatus(syncedText(wifiSynced.length), "ok");
+    } catch (e) {
+      console.error(e);
+      setStatus("Couldn't save the matches from your tag. Try syncing again.", "err");
+    }
+    wifiSynced = null;
   }
   try {
     if (!DEMO) await resolvePending();   // demo mode never touches real data
@@ -1189,10 +1247,22 @@ async function renderMatches() {
   badge.hidden = resolved === 0;
 }
 
+function syncedText(n) {
+  return n ? `Synced ${n} match${n === 1 ? "" : "es"} from your tag.` : "Your tag has no matches yet.";
+}
+
 document.getElementById("sync").addEventListener("click", async () => {
   if (!user) return;
   if (!myTag) { setStatus("Send your profile to your tag first: scan the QR code on its screen.", "err"); return; }
-  if (!navigator.bluetooth) { setStatus("Syncing needs Chrome on Android with Bluetooth on.", "err"); return; }
+  if (!navigator.bluetooth) {                // no Web Bluetooth (iPhones): the three Wi-Fi steps, then one link to the tag
+    const nonce = randomHex(8);
+    try { localStorage.setItem(WIFI_SYNC, JSON.stringify({ id: myTag.id, nonce })); } catch (e) {}
+    document.getElementById("wifi-sync-go").href = `http://192.168.4.1/m?o=${myTag.ownerKey}&n=${nonce}`;
+    wifiSyncOpen = true;
+    setStatus("");
+    render();
+    return;
+  }
   const sync = syncButton;
   sync.disabled = true;
   sync.innerHTML = `<span class="spinner" aria-hidden="true"></span>Syncing…`;
@@ -1204,7 +1274,7 @@ document.getElementById("sync").addEventListener("click", async () => {
     const found = await readMatchLog(conn.service, myTag.ownerKey);
     await saveMatches(found);
     await renderMatches();
-    setStatus(found.length ? `Synced ${found.length} match${found.length === 1 ? "" : "es"} from your tag.` : "Your tag has no matches yet.", "ok");
+    setStatus(syncedText(found.length), "ok");
   } catch (err) {
     setStatus(err.name === "NotFoundError" ? "No tag chosen. Make sure your tag is on and nearby."
               : `Couldn't sync (${err.message}).`, "err");
@@ -1218,6 +1288,7 @@ document.getElementById("sync").addEventListener("click", async () => {
 const SEND_ERRORS = {
   "closed": "The tag isn't in setup mode any more. On the tag: Menu → Settings → Update profile, then scan the new code.",
   "bad-code": "This code has expired. Scan the QR code on the tag again.",
+  "locked": "Too many tries with a wrong code. Wait a minute, then scan the QR code on the tag again.",
   "bad-format": "The tag couldn't read that profile. Check your details and try again.",
 };
 
