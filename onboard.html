@@ -99,7 +99,11 @@
     width: 100%; min-height: var(--tap); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
     background: var(--surface); color: var(--text); font-size: 16px;   /* 16px stops iOS zooming on focus */
   }
-  input:focus { outline: 2px solid var(--accent-hi); border-color: transparent; }
+  select {
+    width: 100%; min-height: var(--tap); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 16px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent-hi); border-color: transparent; }
   .toggle { display: flex; align-items: center; gap: 12px; min-height: var(--tap); margin: 12px 0 0; font-size: 15px; }
   .toggle input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
 
@@ -178,6 +182,7 @@
   .tagmock .big { color: #fff; font-size: 34px; font-weight: 500; line-height: 1.12; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tagmock .big.long { font-size: 25px; }
   .tagmock .small { color: #a09aae; font-size: 14px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tagmock #howto-why { white-space: normal; }   /* the sign's reason wraps, up to 3 lines (ui_Screen2.c) */
   .tagmock .rule { width: 34px; height: 3px; border-radius: 2px; background: var(--accent); margin: 3px 0 5px; }
   .tagmock .nearby { position: absolute; left: 12px; bottom: 8px; font-size: 11px; color: #a09aae; display: flex; align-items: center; gap: 5px; }
   .tagmock .nearby i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
@@ -247,7 +252,7 @@
       <span>Setting up tag <strong id="tag-id"></strong>. <span id="tag-how">Keep your phone near it with Bluetooth on.</span></span>
     </div>
     <div id="unsupported" class="warn" hidden>
-      To send your profile to a tag, scan the QR code on the tag's screen. You can still sign in and save it here.
+      To send your profile to a tag, tap the tag's screen and scan the QR code that appears. You can still sign in and save it here.
     </div>
 
     <div id="signed-out" class="card">
@@ -279,7 +284,7 @@
         <li>Come back here and tap <strong>Send to my tag</strong>.</li>
       </ol>
       <a id="wifi-go" class="btn btn-primary" href="#">Send to my tag</a>
-      <p class="hint" style="margin:12px 0 0">Your tag has no internet, so sign in before this step. After sending, your phone goes back to its usual connection.</p>
+      <p class="hint" style="margin:12px 0 0"><span data-only="business">Your tag has no internet, so sign in before this step. </span>After sending, your phone goes back to its usual connection.</p>
     </div>
 
     <!-- How it works: four cards, shown once after the first send to a tag, and from "How it works" -->
@@ -313,11 +318,11 @@
 
       <div class="howto-step" data-howto="3" hidden>
         <div class="stage" aria-hidden="true">
-          <div class="tagmock look-1" id="howto-sign"><span class="glow"></span><p class="kicker">LOOKING FOR</p>
-            <p class="big" data-me-name></p><span class="shimmer"></span><p class="small">Hiring | AI, Fintech</p></div>
+          <div class="tagmock look-1" id="howto-sign"><span class="glow"></span><p class="kicker" id="howto-kicker">LOOKING FOR</p>
+            <p class="big" data-me-name></p><span class="shimmer"></span><p class="small" id="howto-why">Hiring | AI, Fintech</p></div>
         </div>
         <h1>Look for your name</h1>
-        <p>Look around for a glowing badge that says <strong>Looking for <span data-me-name></span></strong>: that's your match. Your tag shows their name, in the same colour and style.</p>
+        <p>Look around for a glowing badge that says <strong><span id="howto-looking">Looking for</span> <span data-me-name></span></strong>: that's your match. Your tag shows their name, in the same colour and style.</p>
         <button id="match-try" class="btn btn-ghost buzz-try" type="button" hidden>Show a sample match on my tag</button>
         <p id="match-note" class="buzz-note" aria-live="polite"></p>
         <p>Lift your tag to see who and why. It goes back to your name after a minute, or tap it to close it sooner.</p>
@@ -325,12 +330,17 @@
 
       <div class="howto-step" data-howto="4" hidden>
         <div class="stage" aria-hidden="true">
-          <ul class="match-list sample"><li class="match"><div class="initials">A</div><div>
-            <p class="name">Alex</p><p class="sub">Head of Sales · Demo Co</p><p class="why">Hiring | AI, Fintech</p>
+          <ul class="match-list sample" data-only="business"><li class="match"><div class="initials">A</div><div>
+            <p class="name">Alex</p><p class="sub">Head of Sales · Demo Co</p><p class="why" data-sample-why>Hiring · AI, Fintech</p>
             <div class="actions"><span class="btn btn-ghost">LinkedIn</span></div></div></li></ul>
+          <ul class="match-list sample" data-only="dating" hidden><li class="match"><div class="initials">S</div><div>
+            <p class="name">Sam</p><p class="why" data-sample-why>Both: Slow &amp; steady · Running, Coffee</p><p class="sub">See them again?</p>
+            <div class="actions"><span class="btn btn-ghost">Yes</span><span class="btn btn-ghost">Not now</span></div></div></li></ul>
         </div>
         <h1>After the event</h1>
-        <p>Open <strong>Matches</strong> and sync from your tag to see everyone you met, with their LinkedIn.</p>
+        <p data-only="business">Open <strong>Matches</strong> and sync from your tag to see everyone you met, with their LinkedIn.</p>
+        <p data-only="dating" hidden>Open <strong>Matches</strong> and say who you'd like to see again. Their contact
+          details show only if you <strong>both say yes</strong>.</p>
         <p id="howto-signin">Sign in with Google to keep them after the event.</p>
       </div>
     </section>
@@ -347,35 +357,58 @@
         <p class="hint" style="margin:0">Your first name shows big on your tag.</p>
         <label class="field"><span>First name</span>
           <input type="text" id="first" maxlength="12" required autocomplete="given-name" enterkeyhint="next"></label>
-        <label class="field"><span>Company</span>
+        <label class="field" data-only="business"><span>Company</span>
           <input type="text" id="company" maxlength="47" autocomplete="organization" enterkeyhint="next"></label>
-        <label class="field"><span>Role or title</span>
+        <label class="field" data-only="business"><span>Role or title</span>
           <input type="text" id="title" maxlength="47" autocomplete="organization-title" enterkeyhint="next"></label>
-        <label class="field"><span>LinkedIn profile link</span>
+        <label class="field" data-only="business"><span>LinkedIn profile link</span>
           <input type="url" id="linkedin" maxlength="99" inputmode="url" autocomplete="url" enterkeyhint="done"
                  placeholder="https://www.linkedin.com/in/…">
           <p class="hint">People who tap your tag get this link, and so do your matches unless you turn that off below.</p></label>
         <label class="toggle" id="share-contact-row" hidden>
           <input type="checkbox" id="share-contact" checked> Share my email and LinkedIn with my matches</label>
+        <!-- Dating events: who they'd like to meet (never shown on the tag; it decides who can match) -->
+        <div class="goal-group" data-only="dating" hidden><h3>I am</h3><div class="chips" id="iam"></div></div>
+        <div class="goal-group" data-only="dating" hidden><h3>I'd like to meet</h3><div class="chips" id="open"></div>
+          <p class="hint">Tick any. Leave them all unticked to meet everyone.</p></div>
       </fieldset>
 
       <fieldset class="step fade" data-step="2" hidden>
-        <legend>Your interests</legend>
+        <legend id="interests-legend">Your interests</legend>
         <p class="hint" style="margin:0">Pick 3 to 5. People who share them are more likely to match with you.</p>
         <div class="chips" id="interests"></div>
         <p class="counter" id="interest-count" aria-live="polite">0 selected</p>
       </fieldset>
 
       <fieldset class="step fade" data-step="3" hidden>
-        <legend>What are you here for?</legend>
-        <p class="hint" style="margin:0">You match with people who want what you offer, or offer what you want.</p>
-        <div class="goal-group"><h3>I can offer</h3><div class="chips" id="offer"></div></div>
-        <div class="goal-group"><h3>I'm looking for</h3><div class="chips" id="seek"></div></div>
+        <legend id="goals-legend">What are you here for?</legend>
+        <p class="hint" style="margin:0" id="goals-hint">You match with people who want what you offer, or offer what you want.</p>
+        <div class="goal-group" data-only="business"><h3>I can offer</h3><div class="chips" id="offer"></div></div>
+        <div class="goal-group" data-only="business"><h3>I'm looking for</h3><div class="chips" id="seek"></div></div>
+        <div class="goal-group" data-only="dating" hidden><h3>Looking for</h3><div class="chips" id="intent"></div></div>
+        <label class="field" data-only="dating" hidden><span>Human Design type (optional)</span>
+          <select id="hd"><option value="-1">I don't know mine</option></select>
+          <p class="hint">Some types pair well. We never ask for your birth date, time or place.</p></label>
+        <label class="toggle" data-only="dating" hidden><input type="checkbox" id="adult"> I'm 18 or older</label>
+        <label class="toggle" data-only="dating" hidden><input type="checkbox" id="consent"> My tag can share my hobbies,
+          what I'm looking for, my type and who I'd like to meet with other tags here (see Privacy below)</label>
       </fieldset>
     </form>
 
     <details class="privacy" id="privacy">
       <summary>Privacy</summary>
+      <div data-only="dating" hidden>
+      <p>Your answers (first name, hobbies, what you're looking for, your Human Design type if you gave it, and who you
+         are and would like to meet) are written to your NexSwap tag for this event. Only your first name shows on it.</p>
+      <p>To find matches, your tag broadcasts your hobbies, what you're looking for, your type and who you are and would
+         like to meet over Bluetooth to the other tags here; anyone nearby with a Bluetooth scanner app could read them,
+         but not your name. When your tag matches someone, it also broadcasts your first name, and both tags show each
+         other's first name.</p>
+      <p>Nothing is saved to an account. This phone remembers your answers so you can send them again quickly. The
+         organiser resets every tag after the event, which clears your answers from it. This event is for people aged 18
+         and over.</p>
+      </div>
+      <div data-only="business">
       <p>Your profile (first name, company, title, LinkedIn URL, interests and goals) is written to your NexSwap tag,
          which shares your first name, interests and goals with other tags nearby so you can be matched.</p>
       <p>If you continue with Google, the same profile is saved to your NexSwap account (Google Firebase, Singapore region)
@@ -388,6 +421,7 @@
          so nobody can look you up without having actually met you. This page also remembers which tag is yours and a
          secret key that lets only your phone read your tag's matches.</p>
       <p>Without signing in, your profile is only kept in this browser on this phone and matches can't be saved.</p>
+      </div>
       <button id="delete" class="btn btn-danger" type="button" hidden>Delete my saved profile and matches</button>
     </details>
   </section>
@@ -410,6 +444,8 @@
       <p class="hint" style="margin:12px 0 0">Your phone then goes back to its usual connection and your matches appear here.</p>
     </div>
     <ul id="match-list" class="match-list"></ul>
+    <div id="matches-dating" class="empty" hidden><strong>Your matches show here after the event</strong>
+      You'll choose who you'd like to see again. Contact details are shared only when you both say yes.</div>
     <div id="matches-signin" class="empty" hidden><strong>Sign in to see your matches</strong>
       Matches are saved to your account so you can follow up after the event.
       <button id="google-matches" class="btn btn-google" type="button" style="margin-top:16px">Continue with Google</button></div>
@@ -453,6 +489,21 @@ const OFFER = ["Hiring", "Investing", "Mentoring", "Co-founder material",
   "Selling", "Open to partner", "Freelancing", "Giving advice"];
 const SEEK = ["Job hunting", "Raising", "Seeking mentor", "Seeking co-founder",
   "Buying", "Seeking partners", "Hiring freelancers", "Seeking advice"];
+// Dating events: the same bits with these labels (Taxonomy.h DATING_INTEREST_LABELS / DATING_GOAL_LABELS, "" = unused)
+const DATING_INTERESTS = ["Running", "Hiking", "Gym", "Yoga", "Climbing", "Cycling", "Dancing", "Cooking",
+  "Brunch", "Coffee", "Wine", "Travel", "Beach", "Live music", "Karaoke", "Movies",
+  "Gaming", "Board games", "Books", "Art", "Photography", "Pets", "Meditation", "Volunteering",
+  "", "", "", "", "", "", "", ""];
+const DATING_GOALS = ["Slow & steady", "See where it goes", "Friends first",
+  "Manifestor", "Generator", "Manifesting Gen", "Projector", "Reflector"];
+const DATING_INTENTS = 3;   // goal bits 0-2: what they're looking for (set in offer and seek); 3-7: Human Design type
+const HD_TYPES = ["Manifestor", "Generator", "Manifesting Generator", "Projector", "Reflector"];
+// Which types each type pairs with (bit j = HD_TYPES[j]), sent as its seek bits. A draft to check with the organiser;
+// only this page has it (sim/proximity_sim.cpp copies it for --profiles dating). Projectors guide Generators and
+// Manifesting Generators; Manifestors start things those two respond to; Reflectors sample everyone.
+const HD_PAIRS = [0b00110, 0b01001, 0b01001, 0b00110, 0b01111];
+const IAM = ["Woman", "Man", "Non-binary", "Prefer not to say"];   // "who" bits 0-1: 1, 2, 3, 0
+const OPEN = ["Women", "Men", "Non-binary people"];                // "who" bits 2-4 (none = everyone)
 // Must match include/Proximity.c in the tag firmware
 const SETUP_SERVICE = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570001";
 const SETUP_PROFILE = "0b2c1a00-6d2e-4c1f-9a3e-4e5853570002";
@@ -475,22 +526,51 @@ const DEMO_CARDS = {
                   photoURL: "", interests: 0x0804, offer: 0x08, seek: 0x02 },
 };
 const DEMO_ROWS = [{ uid: "demo-alex" }, { uid: "demo-priya" }, { uid: "demo-waiting" }];
+// ?demo=1&e=d: dating sample people, with the "See them again?" answer (Sam says yes too: contact shown)
+const DEMO_DATING_CARDS = {
+  "demo-alex":  { first: "Sam", why: "Both: Slow & steady · Running, Coffee", mutual: "@sam.runs.sg" },
+  "demo-priya": { first: "Jo", why: "Projector meets Generator · Live music, Board games" },
+};
 const TAG_ID = /^[0-9A-Fa-f]{8}$/.test(params.get("tag") || "") ? params.get("tag").toUpperCase() : "";
 const SETUP_CODE = /^[0-9A-Fa-f]{6}$/.test(params.get("k") || "") ? params.get("k").toUpperCase() : "";
+// A dating event: the tag's QR adds &e=d (its event type, set from the organiser's console). The dating form, a v2
+// profile, and no account (Firestore has no rules for dating profiles yet). A link without it (a bookmark, Matches
+// later) uses what the last link with a tag or e= said, so a profile saved without a tag opens again.
+const KIND_KEY = "nexswap-kind";
+let storedKind = null;
+try { storedKind = localStorage.getItem(KIND_KEY); } catch (e) {}
+const DATING = params.has("e") ? params.get("e") === "d" : !TAG_ID && storedKind === "d";
+if (TAG_ID || params.has("e")) try { localStorage.setItem(KIND_KEY, DATING ? "d" : "b"); } catch (e) {}
+document.querySelectorAll("[data-only]").forEach(el => el.hidden = el.dataset.only !== (DATING ? "dating" : "business"));
+if (DATING) {
+  document.getElementById("interests-legend").textContent = "Your hobbies";
+  document.getElementById("goals-legend").textContent = "What are you looking for?";
+  document.getElementById("goals-hint").textContent = "You match with people looking for the same, and with types that pair with yours.";
+  document.getElementById("howto-kicker").textContent = "HOPING TO MEET";
+  document.getElementById("howto-looking").textContent = "Hoping to meet";
+  HD_TYPES.forEach((t, i) => document.getElementById("hd").append(new Option(t, i)));
+  document.getElementById("matches-hint").textContent = "People your tag matched with at this event.";
+}
 
-function addChips(containerId, labels) {
+function addChips(containerId, labels, type = "checkbox") {   // value = bit (labels "" are unused bits)
   const box = document.getElementById(containerId);
   labels.forEach((label, i) => {
+    if (!label) return;
     const el = document.createElement("label");
     el.className = "chip";
-    el.innerHTML = `<input type="checkbox" value="${i}"><span></span>`;
+    el.innerHTML = `<input type="${type}" name="${containerId}" value="${i}"><span></span>`;
     el.querySelector("span").textContent = label;
     box.appendChild(el);
   });
 }
-addChips("interests", INTERESTS);
+addChips("interests", DATING ? DATING_INTERESTS : INTERESTS);
 addChips("offer", OFFER);
 addChips("seek", SEEK);
+if (DATING) {
+  addChips("iam", IAM, "radio");
+  addChips("open", OPEN);
+  addChips("intent", DATING_GOALS.slice(0, DATING_INTENTS), "radio");
+}
 
 function mask(containerId) {
   let m = 0;
@@ -500,28 +580,45 @@ function mask(containerId) {
 const hex = (n, width) => n.toString(16).toUpperCase().padStart(width, "0");
 const clean = s => s.replace(/\|/g, "/").trim();   // "|" separates fields in the payload
 
+// v1 for business (tags on older firmware only take that); v2 adds the event kind and the dating "who" byte
 function payload() {
-  const v = id => clean(document.getElementById(id).value);
-  return ["v1", v("first"), v("company"), v("title"), v("linkedin"),
-          hex(mask("interests"), 8), hex(mask("offer"), 2), hex(mask("seek"), 2)].join("|");
+  const p = formProfile();
+  return (DATING ? ["v2", p.first, "", "", "", hex(p.interests, 8), hex(p.offer, 2), hex(p.seek, 2), "1", hex(p.who, 2)]
+                 : ["v1", p.first, p.company, p.title, p.linkedin, hex(p.interests, 8), hex(p.offer, 2), hex(p.seek, 2)])
+    .join("|");
 }
 
-// Remember the form on this phone so a re-write is quick
+// Remember the form on this phone so a re-write is quick (a dating profile apart from the business one)
 const FIELDS = ["first", "company", "title", "linkedin"];
+const FORM_KEY = DATING ? "nexswap-profile-d" : "nexswap-profile";
+const DATING_BOXES = ["iam", "open", "intent"];
 function saveForm() {
   try {
     const data = { masks: [mask("interests"), mask("offer"), mask("seek")] };
     FIELDS.forEach(id => data[id] = document.getElementById(id).value);
-    localStorage.setItem("nexswap-profile", JSON.stringify(data));
+    if (DATING) {
+      DATING_BOXES.forEach(id => data[id] = mask(id));
+      data.hd = Number(document.getElementById("hd").value);
+      data.adult = document.getElementById("adult").checked;
+      data.consent = document.getElementById("consent").checked;
+    }
+    localStorage.setItem(FORM_KEY, JSON.stringify(data));
   } catch (e) {}
 }
 function loadForm() {
   try {
-    const data = JSON.parse(localStorage.getItem("nexswap-profile") || "null");
+    const data = JSON.parse(localStorage.getItem(FORM_KEY) || "null");
     if (!data) return;
     FIELDS.forEach(id => document.getElementById(id).value = data[id] || "");
     ["interests", "offer", "seek"].forEach((id, k) =>
       document.querySelectorAll(`#${id} input`).forEach(cb => cb.checked = !!(data.masks[k] & (1 << Number(cb.value)))));
+    if (DATING) {
+      DATING_BOXES.forEach(id =>
+        document.querySelectorAll(`#${id} input`).forEach(cb => cb.checked = !!((data[id] || 0) & (1 << Number(cb.value)))));
+      document.getElementById("hd").value = String(data.hd ?? -1);
+      document.getElementById("adult").checked = !!data.adult;
+      document.getElementById("consent").checked = !!data.consent;
+    }
   } catch (e) {}
 }
 loadForm();
@@ -569,10 +666,17 @@ const primaryLabel = () => canSend || canWifi ? "Send to my tag" : "Save my prof
 function fillSummary() {
   const p = formProfile();
   document.getElementById("sum-name").textContent = p.first;
-  document.getElementById("sum-sub").textContent = [p.company, p.title].filter(Boolean).join(" · ") || "Add your company and title";
+  document.getElementById("sum-sub").textContent = DATING
+    ? [DATING_GOALS.find((_, i) => i < DATING_INTENTS && p.offer & (1 << i)), HD_TYPES[hdType(p.offer)]].filter(Boolean)
+        .join(" · ") || "Add what you're looking for"
+    : [p.company, p.title].filter(Boolean).join(" · ") || "Add your company and title";
   const pills = document.getElementById("sum-pills");
   pills.replaceChildren();
   const add = (text, goal) => { const li = document.createElement("li"); li.textContent = text; if (goal) li.className = "goal"; pills.append(li); };
+  if (DATING) {
+    DATING_INTERESTS.forEach((l, i) => { if (l && p.interests & (1 << i)) add(l); });
+    return;
+  }
   OFFER.forEach((l, i) => { if (p.offer & (1 << i)) add(l, true); });
   SEEK.forEach((l, i) => { if (p.seek & (1 << i)) add(l, true); });
   INTERESTS.forEach((l, i) => { if (p.interests & (1 << i)) add(l); });
@@ -584,7 +688,8 @@ function render() {
   document.getElementById("matches-section").hidden = onProfile;
   document.getElementById("tab-profile").setAttribute("aria-selected", onProfile);
   document.getElementById("tab-matches").setAttribute("aria-selected", !onProfile);
-  document.getElementById("matches-signin").hidden = onProfile || !!user || DEMO;
+  document.getElementById("matches-signin").hidden = onProfile || !!user || DEMO || DATING;
+  document.getElementById("matches-dating").hidden = onProfile || DEMO || !DATING;
   document.getElementById("demo-banner").hidden = !DEMO;
   if (!onProfile && !user && !DEMO) { document.getElementById("match-list").replaceChildren(); }
 
@@ -605,7 +710,7 @@ function render() {
   ["tag-banner", "unsupported", "privacy"].forEach(id => document.getElementById(id).classList.toggle("howto-off", howto));
   // Sign-in card: only where it helps (first step, or under a returning user's summary), not on every step
   const signedOut = document.getElementById("signed-out");
-  signedOut.hidden = !!user || howto || (mode === "wizard" && step > 1);
+  signedOut.hidden = !!user || DATING || howto || (mode === "wizard" && step > 1);
   const summary = document.getElementById("summary");
   if (mode === "summary") summary.after(signedOut); else summary.before(signedOut);
   if (mode === "summary") fillSummary();
@@ -632,11 +737,20 @@ function renderHowto() {
     el.textContent = name;
     el.classList.toggle("long", el.classList.contains("big") && name.length > 9);
   });
-  document.querySelectorAll("[data-me-sub]").forEach(el => el.textContent = [p.company, p.title].filter(Boolean).join("  |  ") || "NexSwap");
+  // As on the tag: company | title, nothing at a dating event (a no-break space keeps the line's height)
+  document.querySelectorAll("[data-me-sub]").forEach(el => el.textContent = [p.company, p.title].filter(Boolean).join("  |  ") || "\u00a0");
+  // Card 3: their tag looking for me; card 4: them in my list. Nothing picked yet: the sample's own wording
+  const them = samplePartner(p);
+  document.getElementById("howto-why").textContent =
+    signReason(them, p) || (DATING ? "Both: Slow & steady | Running, Coffee" : "Hiring | AI, Fintech");
+  document.querySelectorAll("[data-sample-why]").forEach(el => {
+    el.dataset.sampleWhy ||= el.textContent;
+    el.textContent = matchReason(them) || el.dataset.sampleWhy;
+  });
   document.querySelectorAll(".howto-step").forEach(el => el.hidden = Number(el.dataset.howto) !== howtoStep);
   document.getElementById("howto-label").textContent = `${howtoStep} of 4`;
   document.querySelectorAll("#howto .dots i").forEach((d, i) => d.classList.toggle("on", i === howtoStep - 1));
-  document.getElementById("howto-signin").hidden = !!user;
+  document.getElementById("howto-signin").hidden = !!user || DATING;
   if (howtoStep === 3) startSign(); else stopSign();
   buzzButton.hidden = matchButton.hidden = !navigator.bluetooth || !(tagLink || myTag);
   if (howtoStep !== 2 && howtoStep !== 3) buzzDisconnect();
@@ -803,7 +917,7 @@ buzzButton.addEventListener("click", async () => {
 
 matchButton.addEventListener("click", () => tagCommand(matchButton, document.getElementById("match-note"), "|m", {
   idle: "Show a sample match on my tag", busy: "Sending…", again: "Show another look",
-  done: "Watch your tag: it waits for the other badge, then shows “Alex Tan” and buzzes. Each try shows a different look." }));
+  done: `Watch your tag: it waits for the other badge, then shows “${DATING ? "Sam" : "Alex Tan"}” and buzzes. Each try shows a different look.` }));
 
 // ---------- "Update my tag": new firmware over Bluetooth (include/Ota.c in the tag firmware) ----------
 // firmware/manifest.json (next to this page, written by release_firmware.sh) says which build is current. The tag
@@ -889,10 +1003,54 @@ const profileRef = () => doc(db, "profiles", user.uid);
 const cardRef = () => doc(db, "cards", user.uid);
 const shareContact = document.getElementById("share-contact");   // email and LinkedIn on the card (on by default)
 
+// Dating: offer = what they're looking for + their own Human Design type, seek = the same + the types it pairs with
+// (HD_PAIRS); who = I am (bits 0-1) + who they'd like to meet (bits 2-4). Company, title and LinkedIn stay empty.
 function formProfile() {
   const v = id => clean(document.getElementById(id).value);
+  if (DATING) {
+    const intent = mask("intent"), hd = Number(document.getElementById("hd").value);
+    const iam = document.querySelector("#iam input:checked"), i = iam ? Number(iam.value) : 3;
+    return { first: v("first"), company: "", title: "", linkedin: "", interests: mask("interests"),
+             offer: intent | (hd >= 0 ? 1 << (DATING_INTENTS + hd) : 0),
+             seek: intent | (hd >= 0 ? HD_PAIRS[hd] << DATING_INTENTS : 0),
+             who: (i === 3 ? 0 : i + 1) | mask("open") << 2 };
+  }
   return { first: v("first"), company: v("company"), title: v("title"), linkedin: v("linkedin"),
            interests: mask("interests"), offer: mask("offer"), seek: mask("seek") };
+}
+function hdType(offer) {   // their Human Design type (HD_TYPES index), -1 = not given
+  for (let i = DATING_INTENTS; i < 8; i++) if (offer & (1 << i)) return i - DATING_INTENTS;
+  return -1;
+}
+
+// How it works: someone who matches me, for the sample sign and sample match. Business: brings what I want and wants
+// what I bring. Dating: looking for the same, of the first type mine pairs with (HD_PAIRS). Both: my interests
+function samplePartner(me) {
+  if (!DATING) return { offer: me.seek, seek: me.offer, interests: me.interests };
+  const intent = me.offer & ((1 << DATING_INTENTS) - 1), mine = hdType(me.offer);
+  const type = mine >= 0 ? Math.log2(HD_PAIRS[mine] & -HD_PAIRS[mine]) : -1;   // lowest bit
+  return { interests: me.interests, offer: intent | (type >= 0 ? 1 << (DATING_INTENTS + type) : 0),
+           seek: intent | (type >= 0 ? HD_PAIRS[type] << DATING_INTENTS : 0) };
+}
+
+// The reason line on me's tag for a match with them, worded as the tag words it (include/Proximity.c matchReason):
+// "Hiring | AI, Fintech", "Both: Slow & steady | Running, Coffee", "Projector meets Generator | Running"
+function signReason(me, them) {
+  let out = "";
+  if (DATING) {
+    const same = [...Array(DATING_INTENTS).keys()].find(i => me.seek & them.offer & (1 << i));
+    const mine = hdType(me.offer), theirs = hdType(them.offer), types = 0xFF << DATING_INTENTS;
+    if (same !== undefined) out = `Both: ${DATING_GOALS[same]}`;
+    else if (mine >= 0 && theirs >= 0 && ((me.seek & them.offer) | (me.offer & them.seek)) & types)
+      out = `${DATING_GOALS[DATING_INTENTS + theirs]} meets ${DATING_GOALS[DATING_INTENTS + mine]}`;
+  } else {
+    for (let i = 0; i < 8 && !out; i++) {
+      if (me.seek & them.offer & (1 << i)) out = OFFER[i];
+      else if (me.offer & them.seek & (1 << i)) out = SEEK[i];
+    }
+  }
+  const shared = (DATING ? DATING_INTERESTS : INTERESTS).filter((l, i) => l && (me.interests & them.interests) & (1 << i));
+  return [out, shared.slice(0, 2).join(", ")].filter(Boolean).join(" | ");
 }
 
 function fillForm(p) {
@@ -990,6 +1148,7 @@ try {
 } catch (e) {}
 
 onAuthStateChanged(auth, async (u) => {
+  if (DATING) u = null;                      // dating profiles stay on the phone and the tag (no account yet)
   user = u;
   document.getElementById("signed-in").hidden = !u;
   document.getElementById("delete").hidden = !u;
@@ -1150,9 +1309,20 @@ async function resolvePending() {
   }
 }
 
-// Same idea as the tag's match reason: what they bring that I want (or want that I bring), then shared interests
+// Same idea as the tag's match reason: what they bring that I want (or want that I bring), then shared interests.
+// Dating: looking for the same thing, or their type and mine when they pair, then shared hobbies
 function matchReason(card) {
   const me = formProfile();
+  if (DATING) {
+    let goal = "";
+    const same = [0, 1, 2].find(i => me.seek & card.offer & (1 << i));
+    const mine = hdType(me.offer), theirs = hdType(card.offer), types = 0xFF << DATING_INTENTS;
+    if (same !== undefined) goal = `Both: ${DATING_GOALS[same]}`;
+    else if (mine >= 0 && theirs >= 0 && ((me.seek & card.offer) | (me.offer & card.seek)) & types)
+      goal = `${HD_TYPES[theirs]} meets ${HD_TYPES[mine]}`;
+    const hobbies = DATING_INTERESTS.filter((l, i) => l && (me.interests & card.interests) & (1 << i)).slice(0, 3);
+    return [goal, hobbies.join(", ")].filter(Boolean).join(" · ");
+  }
   const parts = [];
   for (let i = 0; i < 8; i++) {
     const bit = 1 << i;
@@ -1177,7 +1347,7 @@ async function renderMatches() {
   if (DEMO) {
     rows = DEMO_ROWS;
     pending = { size: 1 };
-    loadCard = async uid => DEMO_CARDS[uid] || null;
+    loadCard = async uid => (DATING ? DEMO_DATING_CARDS : DEMO_CARDS)[uid] || null;
   } else {
     const snap = await getDocs(collection(db, "matches", user.uid, "with"));
     pending = await getDocs(collection(db, "matches", user.uid, "pendingTags"));
@@ -1213,8 +1383,13 @@ async function renderMatches() {
     body.append(el("p", "name", card.first));
     const sub = [card.company, card.title].filter(Boolean).join(" · ");
     if (sub) body.append(el("p", "sub", sub));
-    const why = matchReason(card);
+    const why = card.why || matchReason(card);
     if (why) body.append(el("p", "why", why));
+    if (DATING) {
+      datingAnswer(body, row.uid, card);
+      list.append(li);
+      continue;
+    }
     const actions = el("div", "actions");
     if (/^https:\/\//i.test(card.linkedin || "")) {
       const a = el("a", "btn btn-ghost", "LinkedIn");
@@ -1234,7 +1409,7 @@ async function renderMatches() {
     const empty = el("li", "empty");
     empty.append(el("strong", "", pending.size ? "Almost there" : "No matches yet"),
                  document.createTextNode(myTag ? "Wear your tag at an event, then tap “Sync from my tag”."
-                                               : "Send your profile to your tag first: scan the QR code on its screen."));
+                                               : "Send your profile to your tag first: tap its screen, then scan the QR code."));
     list.append(empty);
   }
   const notes = [];
@@ -1247,13 +1422,34 @@ async function renderMatches() {
   badge.hidden = resolved === 0;
 }
 
+// Dating: "See them again?" Their contact shows only once both said yes. (Only the demo so far: saving the answers
+// and the contact, with Firestore rules that keep it from anyone who didn't say yes back, comes with the pilot.)
+const datingYes = new Set(), datingNo = new Set();
+function datingAnswer(body, uid, card) {
+  if (datingNo.has(uid)) { body.append(el("p", "sub", "Not now. Nothing is shared.")); return; }
+  if (datingYes.has(uid)) {
+    body.append(el("p", "sub", card.mutual ? `It's mutual! ${card.mutual}`
+                                           : "You said yes. If they say yes too, you'll both see each other's contact here."));
+    return;
+  }
+  body.append(el("p", "sub", "See them again?"));
+  const actions = el("div", "actions");
+  for (const [label, set] of [["Yes", datingYes], ["Not now", datingNo]]) {
+    const b = el("button", "btn btn-ghost", label);
+    b.type = "button";
+    b.addEventListener("click", () => { set.add(uid); renderMatches(); });
+    actions.append(b);
+  }
+  body.append(actions);
+}
+
 function syncedText(n) {
   return n ? `Synced ${n} match${n === 1 ? "" : "es"} from your tag.` : "Your tag has no matches yet.";
 }
 
 document.getElementById("sync").addEventListener("click", async () => {
   if (!user) return;
-  if (!myTag) { setStatus("Send your profile to your tag first: scan the QR code on its screen.", "err"); return; }
+  if (!myTag) { setStatus("Send your profile to your tag first: tap its screen, then scan the QR code.", "err"); return; }
   if (!navigator.bluetooth) {                // no Web Bluetooth (iPhones): the three Wi-Fi steps, then one link to the tag
     const nonce = randomHex(8);
     try { localStorage.setItem(WIFI_SYNC, JSON.stringify({ id: myTag.id, nonce })); } catch (e) {}
@@ -1286,10 +1482,13 @@ document.getElementById("sync").addEventListener("click", async () => {
 });
 
 const SEND_ERRORS = {
-  "closed": "The tag isn't in setup mode any more. On the tag: Menu → Settings → Update profile, then scan the new code.",
-  "bad-code": "This code has expired. Scan the QR code on the tag again.",
+  "closed": "The tag's code has expired. Tap the tag's screen for a new code (or Menu → Settings → Update profile if it already has your profile), then scan it.",
+  "bad-code": "This code has expired. Tap the tag's screen, then scan the new QR code.",
   "locked": "Too many tries with a wrong code. Wait a minute, then scan the QR code on the tag again.",
-  "bad-format": "The tag couldn't read that profile. Check your details and try again.",
+  // A tag on older firmware doesn't know dating profiles (v2)
+  "bad-format": DATING ? "This tag needs an update before it can take a dating profile. Ask the organiser."
+                       : "The tag couldn't read that profile. Check your details and try again.",
+  "wrong-kind": "This tag is set up for a different kind of event. Tap its screen and scan its new QR code.",
 };
 
 button.addEventListener("click", async () => {
@@ -1304,6 +1503,11 @@ button.addEventListener("click", async () => {
     return;
   }
   if (!first.value.trim()) { mode = "wizard"; step = 1; render(); first.focus(); setStatus("Add your first name first.", "err"); return; }
+  if (DATING && !(document.getElementById("adult").checked && document.getElementById("consent").checked)) {
+    mode = "wizard"; step = 3; render();
+    setStatus("Tick both boxes at the bottom to continue. This event is for people aged 18 and over.", "err");
+    return;
+  }
   saveForm();
   setBusy(true, canSend ? "Sending…" : "Saving…");
   const saved = await saveToAccount();
@@ -1350,7 +1554,7 @@ button.addEventListener("click", async () => {
     }
   } catch (err) {
     if (err.name === "NotFoundError") {
-      setStatus("No tag chosen. Make sure the tag is on and showing its QR code, then try again.", "err");
+      setStatus("No tag chosen. Tap the tag's screen so it shows its QR code, then try again.", "err");
     } else {
       setStatus(`Couldn't reach your tag (${err.message}). Move closer and try again.`, "err");
     }
