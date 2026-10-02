@@ -174,19 +174,21 @@
   .stage .sample { width: 100%; pointer-events: none; }
 
   /* Badge mock: the tag's 320x240 screen, drawn to match the firmware (ui_Screen2.c) */
-  .tagmock { --glow: #ff8a00; position: relative; width: min(100%, 300px); aspect-ratio: 4 / 3; background: #121016;
-             border: 7px solid #2a2530; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 32px #0009;
-             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 14px; text-align: center; }
+  /* --u: one pixel of the full-size mock (300 px wide); the pair on card 3 shrinks it to fit (.pair below) */
+  .tagmock { --glow: #ff8a00; --u: 1px; position: relative; width: min(100%, 300px); aspect-ratio: 4 / 3; background: #121016;
+             border: calc(var(--u) * 7) solid #2a2530; border-radius: calc(var(--u) * 16); overflow: hidden;
+             box-shadow: 0 calc(var(--u) * 12) calc(var(--u) * 32) #0009; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; gap: calc(var(--u) * 4); padding: calc(var(--u) * 14); text-align: center; }
   .tagmock > :not(.glow) { position: relative; }
   .tagmock p { margin: 0; }
-  .tagmock .big { color: #fff; font-size: 34px; font-weight: 500; line-height: 1.12; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tagmock .big.long { font-size: 25px; }
-  .tagmock .small { color: #a09aae; font-size: 14px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tagmock #howto-why { white-space: normal; }   /* the sign's reason wraps, up to 3 lines (ui_Screen2.c) */
+  .tagmock .big { color: #fff; font-size: calc(var(--u) * 34); font-weight: 500; line-height: 1.12; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tagmock .big.long { font-size: calc(var(--u) * 25); }
+  .tagmock .small { color: #a09aae; font-size: calc(var(--u) * 14); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tagmock .why { white-space: normal; }   /* the sign's reason wraps, up to 3 lines (ui_Screen2.c) */
   .tagmock .rule { width: 34px; height: 3px; border-radius: 2px; background: var(--accent); margin: 3px 0 5px; }
   .tagmock .nearby { position: absolute; left: 12px; bottom: 8px; font-size: 11px; color: #a09aae; display: flex; align-items: center; gap: 5px; }
   .tagmock .nearby i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
-  .tagmock .kicker { color: var(--glow); font-size: 11px; letter-spacing: .25em; }
+  .tagmock .kicker { color: var(--glow); font-size: calc(var(--u) * 11); letter-spacing: .25em; }
   /* Lanyard: two straps from the badge's top corners, leaning in towards the neck */
   .lanyard { position: relative; padding-top: 50px; }
   .lanyard::before, .lanyard::after { content: ""; position: absolute; top: -18px; width: 5px; height: 72px; border-radius: 3px;
@@ -197,11 +199,24 @@
   .buzz-label { color: var(--accent-hi); font-weight: 700; letter-spacing: .08em; margin-top: 10px; height: 20px; }
   .buzz-try { width: 100%; margin-top: 6px; }
   .howto-step .buzz-note { font-size: 14px; min-height: 20px; margin: 8px 0 0; }
+  .buzz-try[hidden] + .buzz-note:empty { display: none; }   /* no tag to try it on: no gap where its note would go */
+  /* Card 3: your tag and theirs side by side. Each is sized to its column (--u), with the sign's own proportions
+     (ui_Screen2.c: kicker 16, name 48, reason 18 px on the 320 px screen) so the text is as big as it can be */
+  .stage.pair { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); justify-items: stretch; align-items: end; gap: 6px; }
+  .pair figure { margin: 0; container-type: inline-size; }
+  .pair figcaption { color: var(--dim); font-size: 13px; margin: 0 0 6px; text-align: center; }
+  .pair .tagmock { width: 100%; --u: calc(100cqw / 300); }
+  .pair .tagmock .kicker { font-size: calc(var(--u) * 15); letter-spacing: .2em; }
+  .pair .tagmock .big { font-size: calc(var(--u) * 40); }
+  .pair .tagmock .big.long { font-size: calc(var(--u) * 28); }
+  .pair .tagmock .small { font-size: calc(var(--u) * 17); line-height: 1.25; }
+  .pair-link { color: var(--dim); font-size: 18px; align-self: center; padding-top: 19px; }
   /* The four match looks: a breathing glow layer behind the text */
   .tagmock .glow { position: absolute; inset: 0; pointer-events: none; }
-  .tagmock.look-0 .glow { box-shadow: inset 0 0 22px 8px var(--glow); }
-  .tagmock.look-1 .glow { inset: 5px; border: 4px solid var(--glow); border-radius: 16px;
-                          box-shadow: 0 0 0 3px color-mix(in srgb, var(--glow) 30%, transparent), inset 0 0 0 3px color-mix(in srgb, var(--glow) 40%, transparent); }
+  .tagmock.look-0 .glow { box-shadow: inset 0 0 calc(var(--u) * 22) calc(var(--u) * 8) var(--glow); }
+  .tagmock.look-1 .glow { inset: calc(var(--u) * 5); border: calc(var(--u) * 4) solid var(--glow); border-radius: calc(var(--u) * 16);
+                          box-shadow: 0 0 0 calc(var(--u) * 3) color-mix(in srgb, var(--glow) 30%, transparent),
+                                      inset 0 0 0 calc(var(--u) * 3) color-mix(in srgb, var(--glow) 40%, transparent); }
   .tagmock.look-2 .glow { background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--glow) 70%, transparent)); }
   .tagmock.look-3 .glow { background: linear-gradient(to bottom, color-mix(in srgb, var(--glow) 60%, transparent), transparent 18%, transparent 82%, color-mix(in srgb, var(--glow) 60%, transparent)); }
   .tagmock.look-3 .glow::before, .tagmock.look-3 .glow::after { content: ""; position: absolute; left: 19%; right: 19%; height: 3%; border-radius: 9px; background: var(--glow); }
@@ -210,7 +225,7 @@
   .tagmock.look-2 .kicker { color: #f5f0ea; }
   .tagmock.look-2 .small { color: #ece6df; }
   /* While the other badge's answer is on its way: a shimmer bar holds the name's place */
-  .tagmock .shimmer { display: none; width: 70%; height: 32px; border-radius: 8px;
+  .tagmock .shimmer { display: none; width: 70%; height: calc(var(--u) * 32); border-radius: calc(var(--u) * 8);
                       background: linear-gradient(90deg, #2e2838 35%, #4a4258 50%, #2e2838 65%) #2e2838; background-size: 250% 100%; }
   .tagmock.waiting .shimmer { display: block; }
   .tagmock.waiting .big { display: none; }
@@ -317,12 +332,18 @@
       </div>
 
       <div class="howto-step" data-howto="3" hidden>
-        <div class="stage" aria-hidden="true">
-          <div class="tagmock look-1" id="howto-sign"><span class="glow"></span><p class="kicker" id="howto-kicker">LOOKING FOR</p>
-            <p class="big" data-me-name></p><span class="shimmer"></span><p class="small" id="howto-why">Hiring | AI, Fintech</p></div>
+        <!-- Your tag and theirs (card 4's sample person) when you match: each names the other, in the same look -->
+        <div class="stage pair" aria-hidden="true">
+          <figure><figcaption>Your tag</figcaption>
+            <div class="tagmock sign look-1"><span class="glow"></span><p class="kicker">LOOKING FOR</p>
+              <p class="big" data-them-name></p><span class="shimmer"></span><p class="small why" id="why-mine"></p></div></figure>
+          <span class="pair-link">⇄</span>
+          <figure><figcaption><span data-them-name></span>'s tag</figcaption>
+            <div class="tagmock sign look-1"><span class="glow"></span><p class="kicker">LOOKING FOR</p>
+              <p class="big" data-me-name></p><span class="shimmer"></span><p class="small why" id="why-theirs"></p></div></figure>
         </div>
         <h1>Look for your name</h1>
-        <p>Look around for a glowing badge that says <strong><span id="howto-looking">Looking for</span> <span data-me-name></span></strong>: that's your match. Your tag shows their name, in the same colour and style.</p>
+        <p>When you match, both tags light up in the same colour and style: yours shows their name, theirs shows yours. Look around for a glowing badge that says <strong><span id="howto-looking">Looking for</span> <span data-me-name></span></strong>: that's your match.</p>
         <button id="match-try" class="btn btn-ghost buzz-try" type="button" hidden>Show a sample match on my tag</button>
         <p id="match-note" class="buzz-note" aria-live="polite"></p>
         <p>Lift your tag to see who and why. It goes back to your name after a minute, or tap it to close it sooner.</p>
@@ -546,7 +567,7 @@ if (DATING) {
   document.getElementById("interests-legend").textContent = "Your hobbies";
   document.getElementById("goals-legend").textContent = "What are you looking for?";
   document.getElementById("goals-hint").textContent = "You match with people looking for the same, and with types that pair with yours.";
-  document.getElementById("howto-kicker").textContent = "HOPING TO MEET";
+  document.querySelectorAll(".sign .kicker").forEach(k => k.textContent = "HOPING TO MEET");
   document.getElementById("howto-looking").textContent = "Hoping to meet";
   HD_TYPES.forEach((t, i) => document.getElementById("hd").append(new Option(t, i)));
   document.getElementById("matches-hint").textContent = "People your tag matched with at this event.";
@@ -724,9 +745,10 @@ function render() {
 }
 
 // ---------- How it works ----------
-// The badge mocks use the person's own profile: card 1-2 show their name badge, card 3 the other person's tag
-// looking for them. The colours and four looks are the tag firmware's (Proximity.c GLOW_COLORS, ui_Screen2.c).
+// The badge mocks use the person's own profile: card 1-2 show their name badge, card 3 their tag and a sample
+// match's (card 4's person), each naming the other. The colours and four looks are the tag firmware's (Proximity.c GLOW_COLORS, ui_Screen2.c).
 const GLOW = ["#ff8a00", "#22d3ee", "#f472b6", "#a3e635", "#facc15", "#60a5fa", "#c084fc", "#f87171"];
+const SAMPLE_NAME = DATING ? "Sam" : "Alex";   // card 3's and card 4's sample match
 const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let signTimers = [];
 
@@ -739,10 +761,11 @@ function renderHowto() {
   });
   // As on the tag: company | title, nothing at a dating event (a no-break space keeps the line's height)
   document.querySelectorAll("[data-me-sub]").forEach(el => el.textContent = [p.company, p.title].filter(Boolean).join("  |  ") || "\u00a0");
-  // Card 3: their tag looking for me; card 4: them in my list. Nothing picked yet: the sample's own wording
-  const them = samplePartner(p);
-  document.getElementById("howto-why").textContent =
-    signReason(them, p) || (DATING ? "Both: Slow & steady | Running, Coffee" : "Hiring | AI, Fintech");
+  // Card 3: my tag naming them and theirs naming me; card 4: them in my list. Nothing picked yet: sample wording
+  const them = samplePartner(p), sample = DATING ? "Both: Slow & steady | Running, Coffee" : "Hiring | AI, Fintech";
+  document.querySelectorAll("[data-them-name]").forEach(el => el.textContent = SAMPLE_NAME);
+  document.getElementById("why-mine").textContent = signReason(p, them) || sample;
+  document.getElementById("why-theirs").textContent = signReason(them, p) || sample;
   document.querySelectorAll("[data-sample-why]").forEach(el => {
     el.dataset.sampleWhy ||= el.textContent;
     el.textContent = matchReason(them) || el.dataset.sampleWhy;
@@ -756,18 +779,24 @@ function renderHowto() {
   if (howtoStep !== 2 && howtoStep !== 3) buzzDisconnect();
 }
 
-// Card 3: the other person's tag goes through the four looks: waiting for the answer, then your name fades in
+// Card 3: both tags go through the four looks together: waiting for the other's answer, then the names fade in
 function startSign() {
   if (signTimers.length) return;
-  const sign = document.getElementById("howto-sign"), big = sign.querySelector(".big");
+  const signs = [...document.querySelectorAll("#howto .sign")];
   let look = 0;
   const show = () => {
-    sign.className = `tagmock look-${look}`;
-    sign.style.setProperty("--glow", GLOW[look * 2]);   // orange, pink, yellow, violet
+    signs.forEach(sign => {
+      sign.className = `tagmock sign look-${look}`;
+      sign.style.setProperty("--glow", GLOW[look * 2]);   // orange, pink, yellow, violet
+      if (reduceMotion()) return;
+      sign.classList.add("waiting");
+      sign.querySelector(".big").classList.remove("fadein");
+    });
     if (reduceMotion()) return;
-    sign.classList.add("waiting");
-    big.classList.remove("fadein");
-    signTimers.push(setTimeout(() => { sign.classList.remove("waiting"); void big.offsetWidth; big.classList.add("fadein"); }, 1200));
+    signTimers.push(setTimeout(() => signs.forEach(sign => {
+      const big = sign.querySelector(".big");
+      sign.classList.remove("waiting"); void big.offsetWidth; big.classList.add("fadein");
+    }), 1200));
   };
   show();
   if (!reduceMotion()) signTimers.push(setInterval(() => { look = (look + 1) % 4; show(); }, 4200));
