@@ -16,6 +16,7 @@
     --bg: #121016; --surface: #1e1a24; --surface-2: #26212e; --border: #2e2838; --accent: #862eaf; --accent-hi: #a24fd0;
     --accent-soft: #862eaf2e; --text: #ffffff; --dim: #a09aae; --ok: #3ddc84; --err: #ff6b6b;
     --radius: 14px; --tap: 48px; --pixel: "Silkscreen", ui-monospace, monospace;
+    --dots: radial-gradient(circle, #ffffff14 1px, transparent 1.5px) 0 0 / 8px 8px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { scroll-padding-bottom: 160px; }
@@ -23,6 +24,13 @@
   button, input { font: inherit; }
   :focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
   [hidden] { display: none !important; }
+  /* Pixel accents, the same on every page: small labels that name a section or a place (step counts, group headings,
+     captions, numbered steps) are in the pixel font; everything to read or type stays in the system font. Every
+     drawing of the tag sits on the same dotted stage, and progress dots are square. */
+  .stepper p, .howto-head p, .goal-group h3, .chip-group h3, .preview figcaption, .pair figcaption, .buzz-label {
+    font: 12px/1.4 var(--pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .wifi-steps li::marker { font-family: var(--pixel); }
+  .stage, .preview { border: 1px solid var(--border); border-radius: var(--radius); background: var(--dots), var(--surface); }
   @media (prefers-reduced-motion: no-preference) { .fade { animation: fade .2s ease-out; } }
   @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   /* Swipe navigation: the new page slides in from the side it came from */
@@ -95,10 +103,10 @@
 
   /* Wizard */
   .stepper { display: flex; align-items: center; justify-content: space-between; margin: 0 0 14px; }
-  .stepper p { margin: 0; color: var(--dim); font-size: 14px; }
+  .stepper p { margin: 0; }
   .dots { display: flex; gap: 6px; }
-  .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
-  .dots i.on { background: var(--accent-hi); width: 22px; border-radius: 4px; }
+  .dots i { width: 8px; height: 8px; background: var(--border); }
+  .dots i.on { background: var(--accent-hi); width: 22px; }
   fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   legend { font-size: 20px; font-weight: 700; padding: 0; margin: 0 0 4px; }
   label.field { display: block; margin: 16px 0 0; }
@@ -126,10 +134,10 @@
   .chip input:focus-visible + span { outline: 2px solid var(--text); }
   .counter { font-size: 14px; color: var(--dim); margin: 10px 0 0; }
   /* Interests in labelled groups */
-  .chip-group h3 { font: 12px/1.4 var(--pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin: 18px 0 0; }
+  .chip-group h3 { margin: 18px 0 0; }
   .chip-group .chips { margin-top: 8px; }
   /* Goals: full-width rows instead of two cramped columns */
-  .goal-group h3 { font-size: 15px; margin: 18px 0 0; }
+  .goal-group h3 { margin: 18px 0 0; }
   .goal-group .chips { flex-direction: column; gap: 8px; margin-top: 8px; }
   .goal-group .chip span { display: flex; width: 100%; min-height: var(--tap); border-radius: 12px; padding: 0 14px; }
   /* Quick picks: this or that, one row per pair */
@@ -181,12 +189,12 @@
   /* How it works: four cards after the first send to a tag (and from "How it works") */
   .howto-off { display: none !important; }
   .howto-head { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
-  .howto-head p { margin: 0; color: var(--dim); font-size: 14px; }
+  .howto-head p { margin: 0; }
   .howto-head .btn-link { margin-left: auto; min-height: var(--tap); }
   .howto-step h1 { margin: 20px 0 6px; }
   .howto-step p { color: var(--dim); margin: 0 0 10px; }
   .howto-step p strong { color: var(--text); font-weight: 600; }
-  .stage { display: grid; place-items: center; padding: 10px 0 0; }
+  .stage { display: grid; place-items: center; padding: 18px 10px 14px; }
   .stage .sample { width: 100%; pointer-events: none; }
 
   /* Badge mock: the tag's 320x240 screen, drawn to match the firmware (ui_Screen2.c) */
@@ -206,13 +214,13 @@
   .tagmock .nearby i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
   .tagmock .kicker { color: var(--glow); font-size: calc(var(--u) * 11); letter-spacing: .25em; }
   /* Lanyard: two straps from the badge's top corners, leaning in towards the neck */
-  .lanyard { position: relative; padding-top: 50px; }
-  .lanyard::before, .lanyard::after { content: ""; position: absolute; top: -18px; width: 5px; height: 72px; border-radius: 3px;
+  .lanyard { position: relative; padding-top: 68px; }
+  .lanyard::before, .lanyard::after { content: ""; position: absolute; top: 0; width: 5px; height: 72px; border-radius: 3px;
                                        background: var(--accent); transform-origin: bottom center; }
   .lanyard::before { left: calc(50% - 72px); transform: rotate(24deg); }
   .lanyard::after { left: calc(50% + 67px); transform: rotate(-24deg); }
   /* Buzz: two short shakes, then a pause */
-  .buzz-label { color: var(--accent-hi); font-weight: 700; letter-spacing: .08em; margin-top: 10px; height: 20px; }
+  .buzz-label { color: var(--accent-hi); font-size: 16px; margin-top: 10px; height: 22px; }
   .buzz-try { width: 100%; margin-top: 6px; }
   .howto-step .buzz-note { font-size: 14px; min-height: 20px; margin: 8px 0 0; }
   .buzz-try[hidden] + .buzz-note:empty { display: none; }   /* no tag to try it on: no gap where its note would go */
@@ -220,7 +228,7 @@
      (ui_Screen2.c: kicker 16, name 48, reason 18 px on the 320 px screen) so the text is as big as it can be */
   .stage.pair { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); justify-items: stretch; align-items: end; gap: 6px; }
   .pair figure { margin: 0; container-type: inline-size; }
-  .pair figcaption { color: var(--dim); font-size: 13px; margin: 0 0 6px; text-align: center; }
+  .pair figcaption { margin: 0 0 6px; text-align: center; }
   .pair .tagmock { width: 100%; --u: calc(100cqw / 300); }
   .pair .tagmock .kicker { font-size: calc(var(--u) * 15); letter-spacing: .2em; }
   .pair .tagmock .big { font-size: calc(var(--u) * 40); }
@@ -261,8 +269,7 @@
 
   /* Live preview: the tag as it will look, filled in as you type, on a dotted pixel stage. Steps 2-3 show a match's
      tag naming you, with the reason your picks give (same proportions as card 3's pair) */
-  .preview { display: grid; justify-items: center; gap: 10px; margin: 0 0 18px; padding: 18px 12px 12px; border-radius: var(--radius);
-             border: 1px solid var(--border); background: radial-gradient(circle, #ffffff14 1px, transparent 1.5px) 0 0 / 8px 8px, var(--surface); }
+  .preview { display: grid; justify-items: center; gap: 10px; margin: 0 0 18px; padding: 18px 12px 12px; }
   .summary .preview { background-color: var(--bg); margin-bottom: 14px; }
   .preview .tagmock { --u: .8px; width: 240px; }
   .preview .tagmock .glow { animation: none; }   /* still while filling in the form */
@@ -271,7 +278,6 @@
   .preview .sign .big.long { font-size: calc(var(--u) * 28); }
   .preview .sign .small { font-size: calc(var(--u) * 17); line-height: 1.25; }
   .preview .tagmock .empty { color: #6e6879; }
-  .preview figcaption { font: 12px/1.4 var(--pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
 </style>
 </head>
 <body>
@@ -386,7 +392,7 @@
       <div class="howto-step" data-howto="4" hidden>
         <div class="stage" aria-hidden="true">
           <ul class="match-list sample" data-only="business"><li class="match"><div class="initials">A</div><div>
-            <p class="name">Alex</p><p class="sub">Head of Sales · Demo Co</p><p class="why" data-sample-why>Hiring · AI, Fintech</p>
+            <p class="name">Alex</p><p class="sub" data-them-role>Head of Sales · Demo Co</p><p class="why" data-sample-why>Selling · AI, Fintech</p>
             <div class="actions"><span class="btn btn-ghost">LinkedIn</span></div></div></li></ul>
           <ul class="match-list sample" data-only="dating" hidden><li class="match"><div class="initials">S</div><div>
             <p class="name">Sam</p><p class="why" data-sample-why>Both: Slow &amp; steady · Running, Coffee</p><p class="sub">See them again?</p>
@@ -896,11 +902,13 @@ function renderHowto() {
   });
   // As on the tag: company | title, nothing at a dating event (a no-break space keeps the line's height)
   document.querySelectorAll("#howto [data-me-sub]").forEach(el => el.textContent = [p.company, p.title].filter(Boolean).join("  |  ") || "\u00a0");
-  // Card 3: my tag naming them and theirs naming me; card 4: them in my list. Nothing picked yet: sample wording
-  const them = samplePartner(p), sample = DATING ? "Both: Slow & steady | Running, Coffee" : "Hiring | AI, Fintech";
+  // Card 3: my tag naming them and theirs naming me; card 4: them in my list, with their role. Nothing picked yet:
+  // sample wording (business: they sell, as samplePartner says)
+  const them = samplePartner(p), sample = DATING ? "Both: Slow & steady | Running, Coffee" : "Selling | AI, Fintech";
   document.querySelectorAll("[data-them-name]").forEach(el => el.textContent = SAMPLE_NAME);
+  if (them.role) document.querySelectorAll("[data-them-role]").forEach(el => el.textContent = them.role);
   document.getElementById("why-mine").textContent = signReason(p, them) || sample;
-  document.getElementById("why-theirs").textContent = signReason(them, p) || sample;
+  document.getElementById("why-theirs").textContent = signReason(them, p) || (DATING ? sample : "AI, Fintech");
   document.querySelectorAll("[data-sample-why]").forEach(el => {
     el.dataset.sampleWhy ||= el.textContent;
     el.textContent = matchReason(them) || el.dataset.sampleWhy;
@@ -1187,10 +1195,24 @@ function hdType(offer) {   // their Human Design type (HD_TYPES index), -1 = not
   return -1;
 }
 
-// How it works: someone who matches me, for the sample sign and sample match. Business: brings what I want and wants
-// what I bring. Dating: looking for the same, of the first type mine pairs with (HD_PAIRS). Both: my interests
+// How it works: someone who complements me, for the sample sign and sample match. Business: one person with one
+// link, the one my tag names first (signReason: something I'm looking for they offer, else something I offer they
+// want), with a role to fit (OFFER_ROLES / SEEK_ROLES, by goal bit). Nothing picked yet: they sell.
+// Dating: looking for the same, of the first type mine pairs with (HD_PAIRS). Both: my interests
+const OFFER_ROLES = ["Head of Talent · Demo Co", "Partner · Demo Ventures", "VP Engineering · Demo Co",
+  "Ex-founder · Demo Labs", "Head of Sales · Demo Co", "Partnerships Lead · Demo Co",
+  "Freelance designer · Self-employed", "Advisor · Demo Partners"];
+const SEEK_ROLES = ["Software Engineer · Open to work", "Founder · Demo Labs", "Associate PM · Demo Co",
+  "Engineer · Stealth startup", "Head of Procurement · Demo Co", "BD Lead · Demo Co",
+  "Marketing Lead · Demo Co", "First-time founder · Demo Labs"];
 function samplePartner(me) {
-  if (!DATING) return { offer: me.seek, seek: me.offer, interests: me.interests };
+  if (!DATING) {
+    for (let i = 0; i < 8; i++) {
+      if (me.seek & (1 << i)) return { offer: 1 << i, seek: 0, interests: me.interests, role: OFFER_ROLES[i] };
+      if (me.offer & (1 << i)) return { offer: 0, seek: 1 << i, interests: me.interests, role: SEEK_ROLES[i] };
+    }
+    return { offer: 1 << 4, seek: 0, interests: me.interests, role: OFFER_ROLES[4] };
+  }
   const intent = me.offer & ((1 << DATING_INTENTS) - 1), mine = hdType(me.offer);
   const type = mine >= 0 ? Math.log2(HD_PAIRS[mine] & -HD_PAIRS[mine]) : -1;   // lowest bit
   return { interests: me.interests, offer: intent | (type >= 0 ? 1 << (DATING_INTENTS + type) : 0),
