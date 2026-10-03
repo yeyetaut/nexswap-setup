@@ -6,12 +6,16 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#121016">
 <title>NexSwap</title>
+<!-- Silkscreen: a pixel font for small labels, echoing the tag's screen -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap">
 <style>
   /* Mobile-first: one column, 48px touch targets, primary action in a sticky bottom bar (thumb zone) */
   :root {
     --bg: #121016; --surface: #1e1a24; --surface-2: #26212e; --border: #2e2838; --accent: #862eaf; --accent-hi: #a24fd0;
     --accent-soft: #862eaf2e; --text: #ffffff; --dim: #a09aae; --ok: #3ddc84; --err: #ff6b6b;
-    --radius: 14px; --tap: 48px;
+    --radius: 14px; --tap: 48px; --pixel: "Silkscreen", ui-monospace, monospace;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { scroll-padding-bottom: 160px; }
@@ -35,6 +39,10 @@
 
   /* Header + tabs */
   .top { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: calc(10px + env(safe-area-inset-top)) 16px 0; }
+  /* Dithered edge: page content scrolling under the header shows through thinning stripes (the bar mirrors it) */
+  .top::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; pointer-events: none;
+                background: linear-gradient(var(--bg) 0 4px, transparent 4px 5px, var(--bg) 5px 8px, transparent 8px 10px,
+                                            var(--bg) 10px 12px, transparent 12px 15px, var(--bg) 15px 16px); }
   .top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 560px; margin: 0 auto; min-height: var(--tap); }
   .brand { font-weight: 700; font-size: 20px; letter-spacing: .01em; }
   .brand span { color: var(--accent-hi); }
@@ -77,13 +85,13 @@
   .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #ffffff55; border-top-color: #fff; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Summary (returning users: one tap to send) */
-  .summary .name { font-size: 22px; font-weight: 700; margin: 0; }
-  .summary .sub { color: var(--dim); margin: 2px 0 12px; }
+  /* Summary (returning users: one tap to send, the bar's button; the rest are links) */
   .pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
   .pills li { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--dim); }
   .pills li.goal { background: var(--accent-soft); color: var(--text); }
-  .summary .btn-ghost { width: 100%; margin-top: 14px; }
+  .summary .pills { justify-content: center; }
+  .summary-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 8px; margin-top: 8px; }
+  .summary-links .btn-link { min-height: var(--tap); }
 
   /* Wizard */
   .stepper { display: flex; align-items: center; justify-content: space-between; margin: 0 0 14px; }
@@ -117,10 +125,17 @@
   .chip input:checked + span::before { content: "✓"; font-weight: 700; }
   .chip input:focus-visible + span { outline: 2px solid var(--text); }
   .counter { font-size: 14px; color: var(--dim); margin: 10px 0 0; }
+  /* Interests in labelled groups */
+  .chip-group h3 { font: 12px/1.4 var(--pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin: 18px 0 0; }
+  .chip-group .chips { margin-top: 8px; }
   /* Goals: full-width rows instead of two cramped columns */
   .goal-group h3 { font-size: 15px; margin: 18px 0 0; }
   .goal-group .chips { flex-direction: column; gap: 8px; margin-top: 8px; }
   .goal-group .chip span { display: flex; width: 100%; min-height: var(--tap); border-radius: 12px; padding: 0 14px; }
+  /* Quick picks: this or that, one row per pair */
+  .goal-group .pick-row { flex-direction: row; flex-wrap: nowrap; margin-top: 8px; }
+  .pick-row .chip { flex: 1 1 0; min-width: 0; }
+  .pick-row .chip span { width: 100%; justify-content: center; padding: 0 10px; }
 
   details.privacy { margin-top: 24px; color: var(--dim); font-size: 14px; }
   details.privacy summary { cursor: pointer; color: var(--text); min-height: var(--tap); display: flex; align-items: center;
@@ -150,8 +165,9 @@
   .empty strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 6px; }
 
   /* Sticky action bar in the thumb zone */
-  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
-         background: linear-gradient(transparent, var(--bg) 28%); }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; padding: 18px 16px calc(12px + env(safe-area-inset-bottom));
+         background: linear-gradient(transparent 0 1px, var(--bg) 1px 2px, transparent 2px 4px, var(--bg) 4px 6px,
+                                     transparent 6px 8px, var(--bg) 8px 11px, transparent 11px 12px, var(--bg) 12px); }
   .bar-inner { max-width: 560px; margin: 0 auto; }
   .status { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px;
             background: var(--surface-2); border: 1px solid var(--border); font-size: 15px; }
@@ -242,6 +258,20 @@
   @keyframes buzz { 0%, 26%, 100% { transform: none; } 3%, 17% { transform: translateX(-5px) rotate(-1.2deg); }
                     7%, 21% { transform: translateX(5px) rotate(1.2deg); } 11% { transform: none; } }
   @keyframes buzz-label { 0%, 30%, 100% { opacity: 1; } 55%, 90% { opacity: .15; } }
+
+  /* Live preview: the tag as it will look, filled in as you type, on a dotted pixel stage. Steps 2-3 show a match's
+     tag naming you, with the reason your picks give (same proportions as card 3's pair) */
+  .preview { display: grid; justify-items: center; gap: 10px; margin: 0 0 18px; padding: 18px 12px 12px; border-radius: var(--radius);
+             border: 1px solid var(--border); background: radial-gradient(circle, #ffffff14 1px, transparent 1.5px) 0 0 / 8px 8px, var(--surface); }
+  .summary .preview { background-color: var(--bg); margin-bottom: 14px; }
+  .preview .tagmock { --u: .8px; width: 240px; }
+  .preview .tagmock .glow { animation: none; }   /* still while filling in the form */
+  .preview .sign .kicker { font-size: calc(var(--u) * 15); letter-spacing: .2em; }
+  .preview .sign .big { font-size: calc(var(--u) * 40); }
+  .preview .sign .big.long { font-size: calc(var(--u) * 28); }
+  .preview .sign .small { font-size: calc(var(--u) * 17); line-height: 1.25; }
+  .preview .tagmock .empty { color: #6e6879; }
+  .preview figcaption { font: 12px/1.4 var(--pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
 </style>
 </head>
 <body>
@@ -282,12 +312,16 @@
 
     <!-- Returning users: a summary and one button, no form to page through -->
     <div id="summary" class="card summary fade" hidden>
-      <p class="name" id="sum-name"></p>
-      <p class="sub" id="sum-sub"></p>
+      <figure class="preview">
+        <div class="tagmock"><p class="big" data-me-name></p><span class="rule"></span><p class="small" data-me-sub></p></div>
+        <figcaption>On your tag</figcaption>
+      </figure>
       <ul class="pills" id="sum-pills"></ul>
-      <button id="edit" class="btn btn-ghost" type="button">Edit profile</button>
-      <button id="howto-open" class="btn btn-ghost" type="button">How it works</button>
-      <button id="update-tag" class="btn btn-ghost" type="button" hidden>Update my tag</button>
+      <div class="summary-links">
+        <button id="edit" class="btn btn-link" type="button">Edit profile</button>
+        <button id="howto-open" class="btn btn-link" type="button">How it works</button>
+        <button id="update-tag" class="btn btn-link" type="button" hidden>Update my tag</button>
+      </div>
     </div>
 
     <!-- Browsers without Web Bluetooth (iPhones): the profile goes to the tag over its own Wi-Fi, as one link -->
@@ -373,6 +407,14 @@
         <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
       </div>
 
+      <!-- Stays put while the steps slide under it; aria-hidden: it repeats what's typed below -->
+      <figure class="preview" aria-hidden="true">
+        <div class="tagmock" data-preview="badge"><p class="big" data-me-name></p><span class="rule"></span><p class="small" data-me-sub></p></div>
+        <div class="tagmock sign look-1" data-preview="sign" hidden><span class="glow"></span><p class="kicker">LOOKING FOR</p>
+          <p class="big" data-me-name></p><p class="small why" data-me-why></p></div>
+        <figcaption data-preview-cap>Your tag</figcaption>
+      </figure>
+
       <fieldset class="step fade" data-step="1">
         <legend>About you</legend>
         <p class="hint" style="margin:0">Your first name shows big on your tag.</p>
@@ -397,8 +439,12 @@
       <fieldset class="step fade" data-step="2" hidden>
         <legend id="interests-legend">Your interests</legend>
         <p class="hint" style="margin:0">Pick 3 to 5. People who share them are more likely to match with you.</p>
-        <div class="chips" id="interests"></div>
+        <div id="interests"></div>
         <p class="counter" id="interest-count" aria-live="polite">0 selected</p>
+        <div class="goal-group" data-only="dating" hidden><h3>Quick picks (optional)</h3>
+          <p class="hint" style="margin:4px 0 0">This or that: tap one of each, or skip any. Pick the same as someone and
+            it can show on your badges.</p>
+          <div id="picks"></div></div>
       </fieldset>
 
       <fieldset class="step fade" data-step="3" hidden>
@@ -407,21 +453,28 @@
         <div class="goal-group" data-only="business"><h3>I can offer</h3><div class="chips" id="offer"></div></div>
         <div class="goal-group" data-only="business"><h3>I'm looking for</h3><div class="chips" id="seek"></div></div>
         <div class="goal-group" data-only="dating" hidden><h3>Looking for</h3><div class="chips" id="intent"></div></div>
-        <label class="field" data-only="dating" hidden><span>Human Design type (optional)</span>
+        <label class="field" data-hd hidden><span>Your Human Design type (optional)</span>
+          <p class="hint" style="margin:0 0 8px">Tonight is a Human Design night, so your type helps choose who you meet.
+            In Human Design everyone has one of five types, worked out from their birth date, time and place. We never
+            ask for those.</p>
           <select id="hd"><option value="-1">I don't know mine</option></select>
-          <p class="hint">Some types pair well. We never ask for your birth date, time or place.</p></label>
+          <p class="hint"><a href="https://humandesignchart.org/chart" target="_blank" rel="noopener">Don't know yours?
+            Find it free ↗</a> (no account; your answers here are kept). Skip it and you'll still match on what you're
+            looking for, your hobbies and quick picks.</p></label>
         <label class="toggle" data-only="dating" hidden><input type="checkbox" id="adult"> I'm 18 or older</label>
-        <label class="toggle" data-only="dating" hidden><input type="checkbox" id="consent"> My tag can share my hobbies,
-          what I'm looking for, my type and who I'd like to meet with other tags here (see Privacy below)</label>
+        <label class="toggle" data-only="dating" hidden><input type="checkbox" id="consent"> <span>My tag can share my hobbies,
+          quick picks, what I'm looking for, <span data-hd hidden>my type </span>and who I'd like to meet with other
+          tags here (see Privacy below)</span></label>
       </fieldset>
     </form>
 
     <details class="privacy" id="privacy">
       <summary>Privacy</summary>
       <div data-only="dating" hidden>
-      <p>Your answers (first name, hobbies, what you're looking for, your Human Design type if you gave it, and who you
-         are and would like to meet) are written to your NexSwap tag for this event. Only your first name shows on it.</p>
-      <p>To find matches, your tag broadcasts your hobbies, what you're looking for, your type and who you are and would
+      <p>Your answers (first name, hobbies, quick picks, what you're looking for,<span data-hd hidden> your Human Design
+         type if you gave it,</span> and who you are and would like to meet) are written to your NexSwap tag for this event. Only your first name shows on it.</p>
+      <p>To find matches, your tag broadcasts your hobbies, quick picks, what you're looking for,<span data-hd hidden>
+         your type</span> and who you are and would
          like to meet over Bluetooth to the other tags here; anyone nearby with a Bluetooth scanner app could read them,
          but not your name. When your tag matches someone, it also broadcasts your first name, and both tags show each
          other's first name.</p>
@@ -514,11 +567,16 @@ const SEEK = ["Job hunting", "Raising", "Seeking mentor", "Seeking co-founder",
 const DATING_INTERESTS = ["Running", "Hiking", "Gym", "Yoga", "Climbing", "Cycling", "Dancing", "Cooking",
   "Brunch", "Coffee", "Wine", "Travel", "Beach", "Live music", "Karaoke", "Movies",
   "Gaming", "Board games", "Books", "Art", "Photography", "Pets", "Meditation", "Volunteering",
-  "", "", "", "", "", "", "", ""];
+  "Early bird", "Night owl", "Dog person", "Cat person", "Coffee date", "Drinks date", "Planner", "Spontaneous"];
+// From this bit on: the quick picks, this-or-that pairs (24 or 25, 26 or 27, ...), shown before hobbies in reasons
+const DATING_PICK_FIRST = 24;
 const DATING_GOALS = ["Slow & steady", "See where it goes", "Friends first",
   "Manifestor", "Generator", "Manifesting Gen", "Projector", "Reflector"];
 const DATING_INTENTS = 3;   // goal bits 0-2: what they're looking for (set in offer and seek); 3-7: Human Design type
 const HD_TYPES = ["Manifestor", "Generator", "Manifesting Generator", "Projector", "Reflector"];
+// One line each, in Human Design's own terms, for people who half-know their type
+const HD_BLURBS = ["starts things", "steady energy, responds to what comes", "fast, many things at once",
+  "a natural guide", "mirrors the room"];
 // Which types each type pairs with (bit j = HD_TYPES[j]), sent as its seek bits. A draft to check with the organiser;
 // only this page has it (sim/proximity_sim.cpp copies it for --profiles dating). Projectors guide Generators and
 // Manifesting Generators; Manifestors start things those two respond to; Reflectors sample everyone.
@@ -557,34 +615,87 @@ const SETUP_CODE = /^[0-9A-Fa-f]{6}$/.test(params.get("k") || "") ? params.get("
 // A dating event: the tag's QR adds &e=d (its event type, set from the organiser's console). The dating form, a v2
 // profile, and no account (Firestore has no rules for dating profiles yet). A link without it (a bookmark, Matches
 // later) uses what the last link with a tag or e= said, so a profile saved without a tag opens again.
+// A Human Design night adds &h=1 (the tag's "hd" setting): only then does the form ask for the type ("h" stored).
 const KIND_KEY = "nexswap-kind";
 let storedKind = null;
 try { storedKind = localStorage.getItem(KIND_KEY); } catch (e) {}
-const DATING = params.has("e") ? params.get("e") === "d" : !TAG_ID && storedKind === "d";
-if (TAG_ID || params.has("e")) try { localStorage.setItem(KIND_KEY, DATING ? "d" : "b"); } catch (e) {}
+const fromLink = !!TAG_ID || params.has("e");
+const DATING = params.has("e") ? params.get("e") === "d" : !TAG_ID && (storedKind === "d" || storedKind === "h");
+const HD_NIGHT = DATING && (fromLink ? params.get("h") === "1" : storedKind === "h");
+if (fromLink) try { localStorage.setItem(KIND_KEY, HD_NIGHT ? "h" : DATING ? "d" : "b"); } catch (e) {}
 document.querySelectorAll("[data-only]").forEach(el => el.hidden = el.dataset.only !== (DATING ? "dating" : "business"));
+document.querySelectorAll("[data-hd]").forEach(el => el.hidden = !HD_NIGHT);
 if (DATING) {
   document.getElementById("interests-legend").textContent = "Your hobbies";
   document.getElementById("goals-legend").textContent = "What are you looking for?";
-  document.getElementById("goals-hint").textContent = "You match with people looking for the same, and with types that pair with yours.";
+  document.getElementById("goals-hint").textContent = HD_NIGHT
+    ? "You match with people looking for the same, and with types that pair with yours."
+    : "You match with people looking for the same.";
   document.querySelectorAll(".sign .kicker").forEach(k => k.textContent = "HOPING TO MEET");
   document.getElementById("howto-looking").textContent = "Hoping to meet";
-  HD_TYPES.forEach((t, i) => document.getElementById("hd").append(new Option(t, i)));
+  HD_TYPES.forEach((t, i) => document.getElementById("hd").append(new Option(`${t}: ${HD_BLURBS[i]}`, i)));
   document.getElementById("matches-hint").textContent = "People your tag matched with at this event.";
 }
 
-function addChips(containerId, labels, type = "checkbox") {   // value = bit (labels "" are unused bits)
-  const box = document.getElementById(containerId);
-  labels.forEach((label, i) => {
-    if (!label) return;
+// value = bit (labels "" are unused bits); box and bits let a group hold some of the labels
+function addChips(containerId, labels, type = "checkbox", box = document.getElementById(containerId), bits = labels.keys()) {
+  for (const i of bits) {
+    if (!labels[i]) continue;
     const el = document.createElement("label");
     el.className = "chip";
     el.innerHTML = `<input type="${type}" name="${containerId}" value="${i}"><span></span>`;
-    el.querySelector("span").textContent = label;
+    el.querySelector("span").textContent = labels[i];
     box.appendChild(el);
+  }
+}
+// Interests in labelled groups, not one wall of chips (display only: values are still the taxonomy bits). A label no
+// group lists (after a taxonomy change) goes under "More" rather than disappearing. "and", not "&": Silkscreen draws
+// "&" like "$".
+const INTEREST_GROUPS = [
+  ["Tech", [0, 4, 5, 8, 9, 10, 11, 24, 25, 26]],
+  ["Industries", [1, 2, 3, 6, 7, 18, 19, 20, 21, 23, 27, 28, 29]],
+  ["What you do", [15, 12, 13, 14]],
+  ["Culture and causes", [22, 17, 16, 30, 31]],
+];
+const DATING_INTEREST_GROUPS = [
+  ["Active", [0, 1, 2, 3, 4, 5, 6]],
+  ["Food and drink", [7, 8, 9, 10]],
+  ["Out and about", [11, 12, 13, 14, 15, 20, 23]],
+  ["Cosy and creative", [16, 17, 18, 19, 21, 22]],
+];
+function addChipGroups(containerId, labels, groups) {
+  const listed = new Set(groups.flatMap(([, bits]) => bits));
+  const rest = [...labels.keys()].filter(i => labels[i] && !listed.has(i));
+  for (const [title, bits] of rest.length ? [...groups, ["More", rest]] : groups) {
+    const group = document.createElement("div");
+    group.className = "chip-group";
+    group.innerHTML = `<h3></h3><div class="chips"></div>`;
+    group.querySelector("h3").textContent = title;
+    document.getElementById(containerId).append(group);
+    addChips(containerId, labels, "checkbox", group.querySelector(".chips"), bits);
+  }
+}
+addChipGroups("interests", DATING ? DATING_INTERESTS.slice(0, DATING_PICK_FIRST) : INTERESTS,
+              DATING ? DATING_INTEREST_GROUPS : INTEREST_GROUPS);
+// Quick picks: one row per pair; picking one clears the other, tapping it again clears it (value = bit)
+if (DATING) {
+  const picks = document.getElementById("picks");
+  for (let bit = DATING_PICK_FIRST; bit < 32; bit += 2) {
+    const row = document.createElement("div");
+    row.className = "chips pick-row";
+    [bit, bit + 1].forEach(b => {
+      const el = document.createElement("label");
+      el.className = "chip";
+      el.innerHTML = `<input type="checkbox" value="${b}"><span></span>`;
+      el.querySelector("span").textContent = DATING_INTERESTS[b];
+      row.appendChild(el);
+    });
+    picks.appendChild(row);
+  }
+  picks.addEventListener("change", e => {
+    if (e.target.checked) e.target.closest(".pick-row").querySelectorAll("input").forEach(cb => { if (cb !== e.target) cb.checked = false; });
   });
 }
-addChips("interests", DATING ? DATING_INTERESTS : INTERESTS);
 addChips("offer", OFFER);
 addChips("seek", SEEK);
 if (DATING) {
@@ -612,7 +723,7 @@ function payload() {
 // Remember the form on this phone so a re-write is quick (a dating profile apart from the business one)
 const FIELDS = ["first", "company", "title", "linkedin"];
 const FORM_KEY = DATING ? "nexswap-profile-d" : "nexswap-profile";
-const DATING_BOXES = ["iam", "open", "intent"];
+const DATING_BOXES = ["iam", "open", "intent", "picks"];
 function saveForm() {
   try {
     const data = { masks: [mask("interests"), mask("offer"), mask("seek")] };
@@ -684,17 +795,15 @@ const buzzButton = document.getElementById("buzz-try"), matchButton = document.g
 const hasProfile = () => !!document.getElementById("first").value.trim();
 const primaryLabel = () => canSend || canWifi ? "Send to my tag" : "Save my profile";
 
+// The name and company | title are on the badge preview above (renderPreview); the pills are everything else
 function fillSummary() {
   const p = formProfile();
-  document.getElementById("sum-name").textContent = p.first;
-  document.getElementById("sum-sub").textContent = DATING
-    ? [DATING_GOALS.find((_, i) => i < DATING_INTENTS && p.offer & (1 << i)), HD_TYPES[hdType(p.offer)]].filter(Boolean)
-        .join(" · ") || "Add what you're looking for"
-    : [p.company, p.title].filter(Boolean).join(" · ") || "Add your company and title";
   const pills = document.getElementById("sum-pills");
   pills.replaceChildren();
   const add = (text, goal) => { const li = document.createElement("li"); li.textContent = text; if (goal) li.className = "goal"; pills.append(li); };
   if (DATING) {
+    [DATING_GOALS.find((_, i) => i < DATING_INTENTS && p.offer & (1 << i)), HD_TYPES[hdType(p.offer)]]
+      .forEach(t => { if (t) add(t, true); });
     DATING_INTERESTS.forEach((l, i) => { if (l && p.interests & (1 << i)) add(l); });
     return;
   }
@@ -735,6 +844,7 @@ function render() {
   const summary = document.getElementById("summary");
   if (mode === "summary") summary.after(signedOut); else summary.before(signedOut);
   if (mode === "summary") fillSummary();
+  if (mode === "summary" || mode === "wizard") renderPreview();
   document.querySelectorAll(".step").forEach(f => f.hidden = Number(f.dataset.step) !== step);
   document.getElementById("step-label").textContent = `Step ${step} of 3`;
   document.querySelectorAll("#stepper .dots i").forEach((d, i) => d.classList.toggle("on", i === step - 1));
@@ -743,6 +853,31 @@ function render() {
   if (!busy) button.textContent = howto ? (howtoStep === 4 ? "Got it" : "Next")
                                         : mode === "summary" || step === 3 ? primaryLabel() : "Next";
 }
+
+// ---------- live preview (wizard and summary) ----------
+// The tag's name badge as it will look. On steps 2-3, a match's tag naming you with the reason it would give
+// (signReason, as on card 3), so picking interests and goals changes what's shown. Placeholders in grey until filled.
+function renderPreview() {
+  const p = formProfile(), sign = mode === "wizard" && step > 1;
+  const fill = (box, sel, text, placeholder) => box.querySelectorAll(sel).forEach(el => {
+    el.textContent = text || placeholder;
+    el.classList.toggle("empty", !text);
+  });
+  document.querySelectorAll(".preview").forEach(box => {
+    fill(box, "[data-me-name]", p.first, "Your name");
+    box.querySelectorAll("[data-me-name]").forEach(el => el.classList.toggle("long", (p.first || "Your name").length > 9));
+    // As on the tag: company | title, nothing at a dating event (a no-break space keeps the line's height)
+    fill(box, "[data-me-sub]", [p.company, p.title].filter(Boolean).join("  |  "), DATING ? " " : "Company  |  Role");
+    fill(box, "[data-me-why]", signReason(samplePartner(p), p), DATING ? "Your hobbies and picks" : "Your goals and interests");
+    const badge = box.querySelector('[data-preview="badge"]'), signEl = box.querySelector('[data-preview="sign"]');
+    if (signEl) { badge.hidden = sign; signEl.hidden = !sign; }
+    const cap = box.querySelector("[data-preview-cap]");
+    if (cap) cap.textContent = sign ? "Their tag when you match" : "Your tag";
+  });
+}
+// After the quick-picks handler (on #picks, nearer the input) has cleared the other half of a pair
+form.addEventListener("input", renderPreview);
+form.addEventListener("change", renderPreview);
 
 // ---------- How it works ----------
 // The badge mocks use the person's own profile: card 1-2 show their name badge, card 3 their tag and a sample
@@ -755,12 +890,12 @@ let signTimers = [];
 function renderHowto() {
   const p = formProfile();
   const name = p.first || "You";
-  document.querySelectorAll("[data-me-name]").forEach(el => {
+  document.querySelectorAll("#howto [data-me-name]").forEach(el => {
     el.textContent = name;
     el.classList.toggle("long", el.classList.contains("big") && name.length > 9);
   });
   // As on the tag: company | title, nothing at a dating event (a no-break space keeps the line's height)
-  document.querySelectorAll("[data-me-sub]").forEach(el => el.textContent = [p.company, p.title].filter(Boolean).join("  |  ") || "\u00a0");
+  document.querySelectorAll("#howto [data-me-sub]").forEach(el => el.textContent = [p.company, p.title].filter(Boolean).join("  |  ") || "\u00a0");
   // Card 3: my tag naming them and theirs naming me; card 4: them in my list. Nothing picked yet: sample wording
   const them = samplePartner(p), sample = DATING ? "Both: Slow & steady | Running, Coffee" : "Hiring | AI, Fintech";
   document.querySelectorAll("[data-them-name]").forEach(el => el.textContent = SAMPLE_NAME);
@@ -1037,9 +1172,9 @@ const shareContact = document.getElementById("share-contact");   // email and Li
 function formProfile() {
   const v = id => clean(document.getElementById(id).value);
   if (DATING) {
-    const intent = mask("intent"), hd = Number(document.getElementById("hd").value);
+    const intent = mask("intent"), hd = HD_NIGHT ? Number(document.getElementById("hd").value) : -1;
     const iam = document.querySelector("#iam input:checked"), i = iam ? Number(iam.value) : 3;
-    return { first: v("first"), company: "", title: "", linkedin: "", interests: mask("interests"),
+    return { first: v("first"), company: "", title: "", linkedin: "", interests: (mask("interests") | mask("picks")) >>> 0,
              offer: intent | (hd >= 0 ? 1 << (DATING_INTENTS + hd) : 0),
              seek: intent | (hd >= 0 ? HD_PAIRS[hd] << DATING_INTENTS : 0),
              who: (i === 3 ? 0 : i + 1) | mask("open") << 2 };
@@ -1062,6 +1197,17 @@ function samplePartner(me) {
            seek: intent | (type >= 0 ? HD_PAIRS[type] << DATING_INTENTS : 0) };
 }
 
+// The labels of shared interest bits, in the tag's order (Proximity.c matchReason): at a dating event the quick
+// picks (DATING_PICK_FIRST on) before the hobbies
+function sharedLabels(shared) {
+  const labels = DATING ? DATING_INTERESTS : INTERESTS, first = DATING ? DATING_PICK_FIRST : 0, out = [];
+  for (let k = 0; k < 32; k++) {
+    const i = (first + k) % 32;
+    if (labels[i] && shared & (1 << i)) out.push(labels[i]);
+  }
+  return out;
+}
+
 // The reason line on me's tag for a match with them, worded as the tag words it (include/Proximity.c matchReason):
 // "Hiring | AI, Fintech", "Both: Slow & steady | Running, Coffee", "Projector meets Generator | Running"
 function signReason(me, them) {
@@ -1078,8 +1224,7 @@ function signReason(me, them) {
       else if (me.offer & them.seek & (1 << i)) out = SEEK[i];
     }
   }
-  const shared = (DATING ? DATING_INTERESTS : INTERESTS).filter((l, i) => l && (me.interests & them.interests) & (1 << i));
-  return [out, shared.slice(0, 2).join(", ")].filter(Boolean).join(" | ");
+  return [out, sharedLabels(me.interests & them.interests).slice(0, 2).join(", ")].filter(Boolean).join(" | ");
 }
 
 function fillForm(p) {
@@ -1349,7 +1494,7 @@ function matchReason(card) {
     if (same !== undefined) goal = `Both: ${DATING_GOALS[same]}`;
     else if (mine >= 0 && theirs >= 0 && ((me.seek & card.offer) | (me.offer & card.seek)) & types)
       goal = `${HD_TYPES[theirs]} meets ${HD_TYPES[mine]}`;
-    const hobbies = DATING_INTERESTS.filter((l, i) => l && (me.interests & card.interests) & (1 << i)).slice(0, 3);
+    const hobbies = sharedLabels(me.interests & card.interests).slice(0, 3);
     return [goal, hobbies.join(", ")].filter(Boolean).join(" · ");
   }
   const parts = [];
