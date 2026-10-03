@@ -132,6 +132,7 @@
   .chip input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--text); }
   .chip input:checked + span::before { content: "✓"; font-weight: 700; }
   .chip input:focus-visible + span { outline: 2px solid var(--text); }
+  .chip input:disabled + span { opacity: .4; cursor: default; }   /* at the limit (limitChips) */
   .counter { font-size: 14px; color: var(--dim); margin: 10px 0 0; }
   /* Interests in labelled groups */
   .chip-group h3 { margin: 18px 0 0; }
@@ -455,7 +456,7 @@
 
       <fieldset class="step fade" data-step="3" hidden>
         <legend id="goals-legend">What are you here for?</legend>
-        <p class="hint" style="margin:0" id="goals-hint">You match with people who want what you offer, or offer what you want.</p>
+        <p class="hint" style="margin:0" id="goals-hint">You match with people who want what you offer, or offer what you want. Up to 3 of each.</p>
         <div class="goal-group" data-only="business"><h3>I can offer</h3><div class="chips" id="offer"></div></div>
         <div class="goal-group" data-only="business"><h3>I'm looking for</h3><div class="chips" id="seek"></div></div>
         <div class="goal-group" data-only="dating" hidden><h3>Looking for</h3><div class="chips" id="intent"></div></div>
@@ -762,6 +763,28 @@ function loadForm() {
 loadForm();
 document.getElementById("form").addEventListener("change", saveForm);
 
+// The most choices a profile may have (Taxonomy.h MAX_INTERESTS / MAX_GOALS, sim/regress.py checks they agree): a tag
+// refuses more, and other tags ignore a tag with more, so nobody matches everyone by ticking everything. The other
+// chips stop at the limit; a profile saved before the limits can still be over, and sending stops it (overLimit).
+// Dating needs no more: one "looking for" and one type are single choices, the quick picks one of each pair
+const MAX_INTERESTS = 5, MAX_GOALS = 3;
+const LIMITS = [["interests", MAX_INTERESTS, DATING ? "hobbies" : "interests", 2]].concat(DATING ? [] :
+  [["offer", MAX_GOALS, "“I can offer” choices", 3], ["seek", MAX_GOALS, "“I'm looking for” choices", 3]]);
+function limitChips() {
+  for (const [id, max] of LIMITS) {
+    const boxes = [...document.querySelectorAll(`#${id} input`)], full = boxes.filter(b => b.checked).length >= max;
+    boxes.forEach(b => b.disabled = full && !b.checked);
+  }
+}
+function overLimit() {   // { step, text } for the first group over its limit
+  for (const [id, max, what, onStep] of LIMITS) {
+    const n = document.querySelectorAll(`#${id} input:checked`).length;
+    if (n > max) return { step: onStep, text: `You've picked ${n} ${what}. Untick ${n - max} to continue: a tag takes up to ${max}.` };
+  }
+  return null;
+}
+document.getElementById("form").addEventListener("change", limitChips);
+
 const status = document.getElementById("status");
 const button = document.getElementById("write");
 function setStatus(text, kind) {
@@ -988,7 +1011,9 @@ function setBusy(on, label) {
 function updateInterestCount() {
   const n = document.querySelectorAll("#interests input:checked").length;
   document.getElementById("interest-count").textContent =
-    n === 0 ? "0 selected" : n < 3 ? `${n} selected, pick a few more` : n > 5 ? `${n} selected, fewer is fine too` : `${n} selected`;
+    n === 0 ? "0 selected" : n < 3 ? `${n} selected, pick a few more`
+    : n > MAX_INTERESTS ? `${n} selected: untick ${n - MAX_INTERESTS}, a tag takes up to ${MAX_INTERESTS}`
+    : n === MAX_INTERESTS ? `${n} selected, that's the most` : `${n} selected`;
 }
 document.getElementById("interests").addEventListener("change", updateInterestCount);
 
@@ -1254,6 +1279,7 @@ function fillForm(p) {
   [["interests", p.interests], ["offer", p.offer], ["seek", p.seek]].forEach(([id, m]) =>
     document.querySelectorAll(`#${id} input`).forEach(cb => cb.checked = !!((m || 0) & (1 << Number(cb.value)))));
   saveForm();
+  limitChips();
 }
 
 async function saveToAccount() {
@@ -1704,6 +1730,8 @@ button.addEventListener("click", async () => {
     setStatus("Tick both boxes at the bottom to continue. This event is for people aged 18 and over.", "err");
     return;
   }
+  const over = overLimit();
+  if (over) { mode = "wizard"; step = over.step; render(); window.scrollTo(0, 0); setStatus(over.text, "err"); return; }
   saveForm();
   setBusy(true, canSend ? "Sending…" : "Saving…");
   const saved = await saveToAccount();
@@ -1878,6 +1906,7 @@ document.addEventListener("touchcancel", () => { if (drag?.el) resetPanel(drag.e
 
 // First paint: returning visitors (profile remembered on this phone) get the one-tap summary
 updateInterestCount();
+limitChips();
 if (hasProfile() && !wifiSent) mode = "summary";   // just back from the tag's Wi-Fi: keep "How it works" / done
 if (DEMO) { activeTab = "matches"; renderMatches(); }
 if (params.get("howto") === "1") { activeTab = "profile"; mode = "howto"; }   // open How it works directly
